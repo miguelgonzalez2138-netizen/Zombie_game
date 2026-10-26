@@ -255,7 +255,7 @@ const INV={open:false,who:me,other:null,otherKind:'',drag:null,searchT:0};
 const invEl=document.getElementById('inv');
 function invOpen(kind,other){
   const s=squad[me]; INV.open=true; INV.who=me; INV.otherKind=kind||''; INV.other=other||null;
-  if(kind==='container'&&!other.rolled){ rollContainer(other); giveXP(s,3,'search'); }
+  if(kind==='container'&&!other.rolled){ rollContainer(other); giveXP(s,3,'search'); STATS.searched++; }
   invEl.hidden=false; mouseDown=false; throwAiming=false; renderInv();
 }
 function invClose(){ INV.open=false; invEl.hidden=true; cancelDrag(); }

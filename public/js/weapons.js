@@ -121,7 +121,7 @@ function muzzlePos(s,W){ const a=s.ang, r=Math.cos(a), rz=-Math.sin(a), side=W.h
 const _hits=[];
 function fire(s,ang,targetJ){
   const W=WPN[s.wpn], isMe=s.i===me, supp=hasMod(s,'supp'), grip=hasMod(s,'grip'), scope=hasMod(s,'scope');
-  s.mags[s.wpn]--; s.recoil=Math.min(1.6,0.6+W.kick*2);
+  s.mags[s.wpn]--; s.recoil=Math.min(1.6,0.6+W.kick*2); STATS.shots++;
   const mode=modeOf(s);
   s.fireCD=(mode==='SEMI'&&W.semi)?W.semi:W.rof;
   if(mode==='BOLT'||mode==='PUMP') s.cycleT=W.rof*0.9;
@@ -169,6 +169,7 @@ function shootRay(s,a,W,M,showTracer){
   for(const h of _hits){ if(left<=0) break; const j=h%1000, t=(h-j)/100000;
     const fall=W.pellets?clamp(1-t/R*0.75,0.25,1):1;
     const crit=Math.random()<(W.crit+(hasMod(s,'scope',W.key)?0.06:0)+(hasPerk(s,'eagle')?0.08:0))*(s.i===me?1.1:1)*(W.pellets?0.3:1);
+    if(crit) STATS.heads++;
     damageZ(j,crit?Math.max(200,W.dmg*2.5):dmg*fall,s.x,s.z,W.knock*fall);
     dmg*=0.65; left--; endT=t; if(left<=0) stopped=true;
   }

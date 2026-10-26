@@ -6,7 +6,7 @@
 
 /* ---------- XP, levels, roles, perks ---------- */
 const LVL_CAP=10;
-function xpNeed(l){ return Math.round(60*Math.pow(l,1.45)); }
+function xpNeed(l){ return Math.round(80*Math.pow(l,1.6)); }
 const HIT={s:null};                       // who's dealing damage right now (for kill credit)
 const PERKS={
   steady:{name:'STEADY HANDS',desc:'Tighter spread with every gun.',role:'fight'},
@@ -122,20 +122,23 @@ function rollSurvivor(){
   const trait=['steady','jumpy','quiet','tough','careful','loud'][Math.random()*6|0];
   return {name:first+' '+last,short:last.toUpperCase(),trait,acc:rand(.32,.62),stress:rand(.8,1.6),melee:rand(.8,1.4),kit,look,post:{x:0,z:0},civ:true};
 }
-function placeSurvivor(){
+function survivorAt(d0,x,z,L,B){
+  const mesh=soldierMesh(-1,d0.look); mesh.scale.setScalar(1.2); mesh.rotation.order='YXZ'; onCharLayer(mesh); scene.add(mesh);
+  const v={d:d0,x,z,L,mesh,B,ang:rand(0,6),t:rand(0,9)};
+  mesh.position.set(x,L*LH,z); mesh.rotation.y=v.ang;
+  // sitting on the floor, hugging their knees
+  const u=mesh.userData; u.legs[0].rotation.x=-1.3; u.legs[1].rotation.x=-1.2; u.torso.position.y=0.5;
+  for(const sx of [-1,1]){ const a=gbox(u.W,0.11,0.11,0.42,u.M.uni,sx*0.2,0.42,0.2); a.rotation.x=0.5; gbox(u.W,0.09,0.09,0.09,u.M.skin,sx*0.12,0.3,0.4); }
+  survivors.push(v); return v;
+}
+function placeSurvivor(near){
   if(squad.filter(s=>s.alive).length+survivors.length>=MAX_SQUAD) return null;
   for(let t=0;t<60;t++){
     const B=MAP.blds[Math.random()*MAP.blds.length|0]; if(!B.enter||B.kind==='base') continue;
     const cx=(B.x0+B.x1)/2, cz=(B.z0+B.z1)/2, d=Math.hypot(cx+20,cz-14); if(d<45||d>170) continue;
     const L=Math.random()*B.floors|0;
     const p=findSpot(L,rand(B.x0+1,B.x1-1),rand(B.z0+1,B.z1-1)); if(!p||bldAt(L,p.x,p.z)!==B.id) continue;
-    const d0=rollSurvivor(); const mesh=soldierMesh(-1,d0.look); mesh.scale.setScalar(1.2); mesh.rotation.order='YXZ'; onCharLayer(mesh); scene.add(mesh);
-    const v={d:d0,x:p.x,z:p.z,L,mesh,B,ang:rand(0,6),t:rand(0,9)};
-    mesh.position.set(p.x,L*LH,p.z); mesh.rotation.y=v.ang;
-    // sitting on the floor, hugging their knees
-    const u=mesh.userData; u.legs[0].rotation.x=-1.3; u.legs[1].rotation.x=-1.2; u.torso.position.y=0.5;
-    for(const sx of [-1,1]){ const a=gbox(u.W,0.11,0.11,0.42,u.M.uni,sx*0.2,0.42,0.2); a.rotation.x=0.5; gbox(u.W,0.09,0.09,0.09,u.M.skin,sx*0.12,0.3,0.4); }
-    survivors.push(v); return v;
+    return survivorAt(rollSurvivor(),p.x,p.z,L,B);
   }
   return null;
 }
@@ -150,7 +153,7 @@ function recruit(v){
   s.x=v.x; s.z=v.z; s.L=v.L; s.y=v.L*LH; s.order='follow'; s.lightOn=G.weaponsFree; s.fat=30;
   for(const q of squad) if(q!==s) relAdd(s,q,rand(-10,15));
   autoPlace(s.pack,mkItem(Math.random()<.5?'can':'snack')); if(Math.random()<.5) autoPlace(s.pack,mkItem('bandage',1));
-  radio(d.name+' joins. '+JOIN_LINES[Math.random()*JOIN_LINES.length|0]);
+  radio(d.name+' joins. '+JOIN_LINES[Math.random()*JOIN_LINES.length|0]); STATS.recruits++; STATS.maxSquad=Math.max(STATS.maxSquad,squad.filter(q=>q.alive).length);
   renderCards();
 }
 function updateSurvivors(dt){

@@ -109,7 +109,7 @@ const ring=new THREE.Mesh(new THREE.RingGeometry(0.55,0.68,16),new THREE.MeshBas
 ring.rotation.x=-Math.PI/2; onCharLayer(ring); scene.add(ring);
 
 /* ---------- zombies (instanced) ---------- */
-const MAXZ=380;
+const MAXZ=600;
 const zx=new Float32Array(MAXZ), zz=new Float32Array(MAXZ), zvx=new Float32Array(MAXZ), zvz=new Float32Array(MAXZ);
 const zhp=new Float32Array(MAXZ), ztx=new Float32Array(MAXZ), ztz=new Float32Array(MAXZ), zang=new Float32Array(MAXZ);
 const zspd=new Float32Array(MAXZ), zph=new Float32Array(MAXZ), zox=new Float32Array(MAXZ), zoz=new Float32Array(MAXZ);
@@ -330,6 +330,7 @@ function freezeCorpse(i){
     const a=zim[n].instanceColor.array; tmpC.setRGB(a[i*3]*0.85,a[i*3+1]*0.85,a[i*3+2]*0.85); cim[n].setColorAt(cIdx,tmpC);
     cim[n].instanceMatrix.needsUpdate=true; cim[n].instanceColor.needsUpdate=true;
   }
+  if(typeof cNight!=='undefined') cNight[cIdx]=G.night;
   cIdx=(cIdx+1)%MAXC;
 }
 

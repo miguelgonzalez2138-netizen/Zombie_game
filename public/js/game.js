@@ -4,7 +4,7 @@
 
 /* ---------- game state ---------- */
 const G={shake:0,mist:0.3,ashK:0.55,gust:0,gustT:0,gustTarget:0.2,phase:'day',t:0,night:1,anchorX:200,anchorSpeed:2.6,noise:0,weaponsFree:true,order:'hold',lightsOn:true,
-  fogNear:18,fogFar:75,kickX:0,kickZ:0,dead:false,paused:false,started:false,camH:68,camHTarget:68,afterPass:0,kills:0,peel:0.003,mapOpen:false};
+  fogNear:18,fogFar:75,kickX:0,kickZ:0,hordeBonus:0,dayNoise:0,nextEvent:3,nightT:0,nightType:'pass',waves:[],event:null,baseEmpty:0,dead:false,paused:false,started:false,camH:68,camHTarget:68,afterPass:0,kills:0,peel:0.003,mapOpen:false};
 const fogT={near:18,far:75,col:new THREE.Color(0x3a3631),amb:0.62,moon:0.75,ambCol:new THREE.Color(0x66707e),sunCol:new THREE.Color(0xe6e0d2),sunOff:new THREE.Vector3(-55,95,-35),mist:0.3,ash:0.55};
 let time=0;
 
@@ -37,41 +37,42 @@ function despawnAll(onlyCalm){
 }
 function startDay(){
   G.phase='day'; G.t=10.5*HOUR; setFogTarget('day'); for(const f of flares){ f.on=false; f.m.visible=false; }
-  despawnAll(false);
+  despawnAll(false); G.baseEmpty=0;
+  rollWeather();
   if(G.night>1){
-    let found=0;
     for(const s of squad){ if(!s.alive) continue; s.hp=Math.min(100,s.hp+(BASEUP.stove?25:15)); s.stress*=0.4; }
-    bannerShow('DAY '+G.night,'The fog thinned out. Eat, fix the line, go find what we need.');
-    dailyUpkeep(); squadDawn();
+    bannerShow('DAY '+G.night,WX_NAME[WX.kind]+'. Eat, fix the line, go find what we need.');
   } else {
     bannerShow('DAY 1','Wolcott & 18th. Food for a few days. Find more before dark.',4);
   }
-  // a few dead wander the neighborhood by day
-  for(let k=0;k<26;k++){ const p=randomStreetSpot(40); if(p) spawnZ(p.x,p.z,4,0,0); }
+  dayEvent();
+  // a few dead wander the neighborhood by day, more as the days go on
+  for(let k=0;k<26+G.night*2;k++){ const p=randomStreetSpot(40); if(p) spawnZ(p.x,p.z,4,0,0); }
+  saveGame(true);
 }
 function startDusk(){
-  G.phase='dusk'; G.t=11; setFogTarget('night'); placeFlares();
-  bannerShow('FOG ROLLING IN','Get on the line.');
+  G.phase='dusk'; G.t=DUSK_LEN; setFogTarget('night'); placeFlares();
+  raidCheck();
+  // what you did today decides how many come tonight
+  G.hordeBonus=Math.min(260,G.hordeBonus*0.8+G.dayNoise*0.1); G.dayNoise=0;
+  G.nightType=rollNight();
+  if(G.nightType!=='storm'&&Math.random()<0.5) rollWeather();
+  bannerShow('FOG ROLLING IN',G.nightType==='quiet'?'Feels quiet out there.':'Get on the line.');
   radio(NIGHT_LINES[(G.night-1)%NIGHT_LINES.length]);
+  if(G.hordeBonus>80) radio('All that noise today. There\'ll be more of them tonight.');
 }
 function startNight(){
-  G.phase='night'; G.afterPass=0;
-  G.anchorX=150; G.anchorSpeed=2.4+G.night*0.25;
-  G.peel=0.0025+G.night*0.0012;
-  const n=Math.min(MAXZ-60,120+G.night*55);
-  for(let k=0;k<n;k++){
-    const ox=rand(-30,30), oz=rand(-6,6);
-    spawnZ(G.anchorX+ox,-32+oz,1,ox,oz);
-  }
-  const strag=10+G.night*3;
-  for(let k=0;k<strag;k++){ const p=randomStreetSpot(30); if(p) spawnZ(p.x,p.z,4,0,0); }
-  bannerShow('NIGHT '+G.night,'The horde is moving along 18th. Let it pass.',4);
+  G.phase='night'; G.afterPass=0; G.nightT=0;
+  nightStart();
 }
 function startDawn(){
-  G.phase='dawn'; G.t=9; setFogTarget('dawn');
+  G.phase='dawn'; G.t=DAWN_LEN; setFogTarget('dawn');
   despawnAll(true);
-  bannerShow('IT PASSED','Dawn on day '+(G.night+1)+'.');
+  STATS.nights.push(G.nightType);
+  bannerShow(G.nightType==='quiet'?'MORNING':'IT PASSED','Dawn on day '+(G.night+1)+'.');
   G.night++;
+  // the day's bookkeeping happens now so the planning screen shows it
+  dailyUpkeep(); squadDawn(); fadeCorpses(); radioDawn();
 }
 // a street or alley cell at least `away` metres from the compound
 function randomStreetSpot(away){
@@ -104,7 +105,7 @@ function spawnZ(x,z,state,ox,oz,L){
 }
 function killZ(i,corpse=true){
   if(!corpse||zst[i]===5){ zst[i]=0; ztr[i]=null; hideZ(i); return; }
-  G.kills++; corpseDrop(i); if(HIT.s) giveXP(HIT.s,HIT.quiet?12:8,HIT.melee?'melee':'fight');
+  G.kills++; STATS.kills++; NIGHT_LOG.kills+=G.phase==='night'?1:0; if(HIT.quiet) STATS.quiet++; corpseDrop(i); if(HIT.s) giveXP(HIT.s,HIT.quiet?12:8,HIT.melee?'melee':'fight');
   zst[i]=5; zdie[i]=0; ztr[i]=null;
   if(!zdx[i]&&!zdz[i]){ zdx[i]=Math.sin(zang[i]+Math.PI); zdz[i]=Math.cos(zang[i]+Math.PI); }
   const fwd=Math.sin(zang[i])*zdx[i]+Math.cos(zang[i])*zdz[i];
@@ -128,7 +129,7 @@ function updateDying(i,dt){
    find their way around walls, through yards and up stairs toward it. */
 const noiseSrc=[]; const noiseF=new FlowField(84); let noiseDirty=false, noiseBuiltT=-9;
 function makeNoise(x,z,r,L){
-  L=L||0;
+  L=L||0; r*=wxNoise(); bigNoise(r);
   if(indoors(L,x,z)) r*=0.6;
   G.noise=Math.min(1,G.noise+r/60);
   scareBirds(x,z,r*0.8); if(r>20) for(const w of litWindows) if(Math.hypot(w.z-z,w.x-x)<70&&Math.random()<.5) w.off=rand(40,110);
@@ -286,9 +287,11 @@ addEventListener('keydown',e=>{
   if(k===' '||k==='tab') e.preventDefault();
   if(keys[k]) return; keys[k]=true;
   if(k==='escape'){ if(G.mapOpen){ act('map'); return; } if(INV.open){ invClose(); return; } if(wsOpen){ wsToggle(); return; } if(SQ.open){ sqToggle(); return; } if(BUILD.on){ buildToggle(); return; }
-    G.paused=!G.paused; bannerShow(G.paused?'PAUSED':'', G.paused?'Esc to resume':'',G.paused?9999:0.1); return;}
+    if(PLAN.open) return; if(G.paused) pauseClose(); else pauseOpen(); return;}
   if(G.paused) return;
   const a=KEY2ACT[k];
+  if(k===']'||k==='['){ setSpeed(k===']'?1:-1); return; }
+  if(k==='f5'){ e.preventDefault(); saveGame(); return; }
   // with a screen open, only movement and closing it
   if(INV.open||wsOpen||SQ.open){ if(a==='inv'||a==='use'||a==='squad') act(a); return; }
   if(BUILD.on){ if(k>='1'&&k<='9'){ buildSelect(+k-1); return; } if(k==='r'){ BUILD.rot=!BUILD.rot; return; } if(a==='build'){ act(a); return; }
@@ -361,7 +364,7 @@ function inLight(s){
 function moveSoldier(s,dx,dz,speed,dt){
   if(s.trav){ travStep(s,dt,speed*0.9); s.y=agentY(s); s.vx*=0.9; s.vz*=0.9; return; }
   if(s.hp<45) speed*=0.8;
-  speed*=(WPN[s.wpn].spd||1)*woundSpeed(s);
+  speed*=(WPN[s.wpn].spd||1)*woundSpeed(s)*wxSpeed(s);
   const seg=s.L===0?segAt(s.x,s.z,0.1):null; if(seg) speed*=0.45;
   s.vx=lerp(s.vx,dx*speed,Math.min(1,dt*12)); s.vz=lerp(s.vz,dz*speed,Math.min(1,dt*12));
   moveAgent(s,s.vx*dt,s.vz*dt,0.33,AG.SOLDIER);
@@ -512,7 +515,7 @@ function updateZombies(dt){
   rebuildGrid();
   const nightMul=1+(G.night-1)*0.07;
   // how far away the dead can pick each soldier out: lights make you visible, sneaking and hiding in the dark don't
-  for(const s of squad){ s.near=0; s.sight=present(s)?(6.5+(s.lightOn?7.5:0)+(inLight(s)?6:0))*(G.fogFar<35?0.9:1.25)*(s.sneak?0.6:1):0; if(s.hiding) s.sight=Math.min(s.sight,2.2); }
+  for(const s of squad){ s.near=0; s.sight=present(s)?(6.5+(s.lightOn?7.5:0)+(inLight(s)?6:0))*(G.fogFar<35?0.9:1.25)*(s.sneak?0.6:1)*wxSight():0; if(s.hiding) s.sight=Math.min(s.sight,2.2); }
   const NF=noiseField();
   for(let i=0;i<MAXZ;i++){
     const st=zst[i]; if(!st) continue;
@@ -612,7 +615,7 @@ function updateZombies(dt){
     if(bs>=0&&zcd[i]<=0){
       const s=squad[bs];
       if(s.L===L&&Math.hypot(s.x-nx,s.z-nz)<1.05&&s.iframe<=0&&!s.vault){
-        zcd[i]=0.95; s.hp-=10*nightMul*(hasPerk(s,'tough')?0.8:1); s.stress=Math.min(100,s.stress+9); woundOnBite(s,nx,nz); if(s.mounted&&s.i!==me) dismount(s);
+        zcd[i]=0.95; s.hp-=10*nightMul*(hasPerk(s,'tough')?0.8:1); s.stress=Math.min(100,s.stress+9); woundOnBite(s,nx,nz); NIGHT_LOG.hurt.add(s.short); if(s.mounted&&s.i!==me) dismount(s);
         bleed(s.x,1.2,s.z,s.x-nx,s.z-nz,7,1.6,s.y);
         if(bs===me){ hurtFlash=0.35; G.shake=Math.max(G.shake,0.55); const dd=Math.hypot(s.x-nx,s.z-nz)||1; G.kickX+=(s.x-nx)/dd*0.5; G.kickZ+=(s.z-nz)/dd*0.5; cancelReload(s); }
         else if(Math.hypot(s.x-squad[me].x,s.z-squad[me].z)<9) G.shake=Math.max(G.shake,0.25);
@@ -642,28 +645,18 @@ let hurtFlash=0;
 function soldierDown(s){
   s.alive=false; s.hp=0; s.lightOn=false; s.light.intensity=0;
   s.mesh.rotation.set(Math.PI/2,s.ang,0); s.mesh.position.y=s.y+0.25;
-  bannerShow(s.short+' IS DOWN','',2.2); if(s.mounted) dismount(s); onSoldierLost(s); const wit=squad.find(q=>q!==s&&present(q)); if(wit) bark(wit,'down',true);
+  bannerShow(s.short+' IS DOWN','',2.2); STATS.lost.push(s.name); NIGHT_LOG.lost.push(s.short); if(s.mounted) dismount(s); onSoldierLost(s); const wit=squad.find(q=>q!==s&&present(q)); if(wit) bark(wit,'down',true);
   if(s.i===me){ const alive=squad.find(q=>present(q)); if(alive){ me=alive.i; alive.lightOn=true; } }
   if(!squad.some(q=>present(q))&&!squad.some(q=>q.alive&&q.away)) gameOver();
 }
-function gameOver(){
-  G.dead=true;
-  const o=document.getElementById('over'); o.hidden=false;
-  document.getElementById('overS').textContent='Second squad held Wolcott & 18th for '+(G.night-1)+' full night'+(G.night-1===1?'':'s')+' and dropped '+G.kills+'. Nobody came back for the truck.';
-}
+function gameOver(){ runOver('LINE LOST','Second Squad is gone.'); }
 
 /* ---------- phase logic ---------- */
 function updatePhase(dt){
-  if(G.phase==='day'){ G.t-=dt; if(G.t<=0) startDusk(); }
+  if(G.phase==='day'){ G.t-=dt; updateDayEvents(dt); if(G.t<=0) startDusk(); }
   else if(G.phase==='dusk'){ G.t-=dt; if(G.t<=0) startNight(); }
-  else if(G.phase==='night'){
-    G.anchorX-=G.anchorSpeed*dt;
-    if(G.anchorX<-195){
-      let active=0; for(let i=0;i<MAXZ;i++){ const st=zst[i]; if(st===3||(st===2&&Math.abs(zx[i])<14)) active++; }
-      G.afterPass+=dt;
-      if((active===0&&G.afterPass>4)||G.afterPass>45) startDawn();
-    }
-  } else if(G.phase==='dawn'){ G.t-=dt; if(G.t<=0) startDay(); }
+  else if(G.phase==='night') updateNight(dt);
+  else if(G.phase==='dawn'){ G.t-=dt; if(G.t<=0){ startDay(); if(!G.dead) planOpen(); } }
 }
 
 /* ---------- cutaways: open the building you're in, slice anything between you and the camera ---------- */
@@ -706,15 +699,17 @@ function updateHUD(){
   for(const s of squad) if(s.alive) applyWear(s);
   const nightEl=document.getElementById('night'), phaseEl=document.getElementById('phase'), hordeEl=document.getElementById('horde');
   nightEl.textContent=(G.phase==='day'?'DAY ':'NIGHT ')+G.night;
-  if(G.phase==='day'){ const h=Math.floor(G.t/HOUR), m=Math.floor((G.t%HOUR)/HOUR*60); phaseEl.textContent='Fog thin · '+h+'h '+String(m).padStart(2,'0')+'m of light left'; }
+  if(G.phase==='day'){ const h=Math.floor(G.t/HOUR), m=Math.floor((G.t%HOUR)/HOUR*60); phaseEl.textContent=clockStr()+' · '+WX_NAME[WX.kind]+' · '+h+'h '+String(m).padStart(2,'0')+'m of light left'+(timeScale>1?' · '+timeScale+'×':''); }
   else if(G.phase==='dusk') phaseEl.textContent='Fog rolling in';
-  else if(G.phase==='night') phaseEl.textContent='Fog thick';
+  else if(G.phase==='night') phaseEl.textContent=clockStr()+' · '+WX_NAME[WX.kind]+' · '+Math.ceil((NIGHT_LEN-G.nightT)/NIGHT_HOUR)+'h to dawn'+(timeScale>1?' · '+timeScale+'×':'');
   else phaseEl.textContent='Fog lifting';
   let hordeTxt='Horde: not seen', hot=false;
   if(G.phase==='night'){
     let chasing=0; for(let i=0;i<MAXZ;i++) if(zst[i]===3) chasing++;
     const ax=G.anchorX;
     if(chasing>12){hordeTxt='Horde: coming for you';hot=true;}
+    else if(G.nightType==='quiet') hordeTxt='Horde: not tonight';
+    else if(G.nightType==='siege'||G.nightType==='brutal'){ const left=G.waves.filter(w=>!w.done).length; hordeTxt=left?'Horde: '+left+' wave'+(left>1?'s':'')+' still out there':'Horde: all in'; hot=true; }
     else if(ax>14&&ax<195) hordeTxt='Horde: on 18th, '+Math.round(ax)+' m east';
     else if(ax>=-14&&ax<=14){hordeTxt='Horde: crossing in front of the line';hot=true;}
     else if(ax<-14&&ax>-195) hordeTxt='Horde: on 18th, '+Math.round(-ax)+' m west';
@@ -834,6 +829,8 @@ function drawFX(dt,time){
     fctx.drawImage(sprite,a.x*FW-size/2,a.y*FH-size/2,size,size);
   }
   fctx.globalAlpha=1;
+  drawWeather(fctx,dt,inside);
+  if(WX.flash>0){ fctx.fillStyle='rgba(220,226,255,'+(WX.flash*0.35)+')'; fctx.fillRect(0,0,FW,FH); }
   if(vignette) fctx.drawImage(vignette,0,0);
   if(hurtFlash>0){ fctx.fillStyle='rgba(150,30,20,'+(hurtFlash*0.6)+')'; fctx.fillRect(0,0,FW,FH); }
   fctx.textAlign='center'; fctx.font=(11*DPR)+'px "Big Shoulders Stencil Display", Impact, sans-serif';
@@ -926,7 +923,7 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt=Math.min(0.05,(now-last)/1000); last=now;
   if(!G.started||G.paused||G.dead) dt=0;
-  if(dt>0) stepSim(dt);
+  if(dt>0){ for(let k=0;k<timeScale;k++) stepSim(dt); updateWeather(dt*timeScale); }
   updateWindows(dt,time);  const k=Math.min(1,dt*0.45+ (G.started?0:1));
   G.fogNear=lerp(G.fogNear,fogT.near,k); G.fogFar=lerp(G.fogFar,fogT.far,k);
   const roll=(G.phase==='night')?Math.sin(time*0.21)*3.5+Math.sin(time*0.077)*2.5:0;
@@ -1071,5 +1068,14 @@ function begin(){
   document.getElementById('start').hidden=true;
   G.started=true; startDay();
 }
+function beginFromSave(){
+  let S=null; try{ S=JSON.parse(localStorage.getItem('fogline.save')); }catch(e){}
+  if(!S){ begin(); return; }
+  initAudio(); document.getElementById('start').hidden=true;
+  try{ applySave(S); }catch(e){ console.error(e); bannerShow('SAVE WOULD NOT LOAD','Starting fresh.',3); G.started=true; startDay(); }
+}
+{ const cb=document.getElementById('contBtn'); if(cb){ cb.hidden=!hasSave(); cb.addEventListener('click',beginFromSave); }
+  const bd=document.getElementById('startBoard'); if(bd) bd.innerHTML=loadBoard().length?'<div class="sub">THE BOARD</div>'+boardHTML():'';
+  if(sessionStorage.getItem('fogline.loadNow')){ sessionStorage.removeItem('fogline.loadNow'); setTimeout(beginFromSave,50); } }
 document.getElementById('startBtn').addEventListener('click',begin);
 document.getElementById('againBtn').addEventListener('click',()=>location.reload());

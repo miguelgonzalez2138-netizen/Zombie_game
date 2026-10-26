@@ -18,6 +18,7 @@ function initAudio(){
     amb.whistle=bed('bandpass',900,9,0.0);
     amb.rumble=bed('lowpass',75,0.7,0.07);
     amb.murmur=bed('bandpass',230,1.4,0.0);
+    amb.rain=bed('highpass',2400,0.5,0.0);
     const hum=AC.createOscillator(); hum.type='sawtooth'; hum.frequency.value=60;
     const hf=AC.createBiquadFilter(); hf.type='lowpass'; hf.frequency.value=170; const hg=AC.createGain(); hg.gain.value=0;
     hum.connect(hf); hf.connect(hg); hg.connect(master); hum.start(); amb.hum={g:hg};

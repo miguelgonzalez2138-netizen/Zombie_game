@@ -195,3 +195,34 @@ body.touch #radio{top:calc(12px + env(safe-area-inset-top,0px))}
 .rel i{position:relative;height:4px;background:rgba(230,220,203,.1)} .rel i b{position:absolute;top:0;height:100%;background:var(--tan)}
 .rel em{font-style:normal;font-size:9px;color:var(--dim);letter-spacing:.08em}
 .sqbox .hint{grid-column:1/-1;color:var(--dim);font-size:10px}
+
+/* planning screen */
+#plan{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,8,.62);z-index:25;font-family:var(--f-mono)}
+#plan[hidden]{display:none}
+.planbox{background:rgba(24,25,19,.97);border-top:3px solid var(--tan);padding:16px 20px 12px;width:min(820px,95vw);max-height:94vh;overflow:auto;display:grid;gap:8px}
+.planbox .ttl{font-family:var(--f-disp);font-weight:800;font-size:24px;letter-spacing:.12em;color:var(--ink)}
+.planbox .sum{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:10px;color:var(--dim)} .planbox .sum b{color:var(--ink)} .planbox .sum .bad b{color:var(--bad)} .planbox .sum .warn b{color:var(--warn)}
+.planbox .sub{font-family:var(--f-disp);font-weight:700;font-size:13px;letter-spacing:.16em;color:var(--tan);margin-top:6px}
+.pr{display:grid;grid-template-columns:200px 1fr;gap:4px 12px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(230,220,203,.07)}
+.pr b{color:var(--ink);font-size:12px;letter-spacing:.08em} .pr small{display:block;color:var(--dim);font-size:9px;margin-top:2px}
+.pt{display:flex;flex-wrap:wrap;gap:3px}
+.pr button,.planbox .btns button{font-family:var(--f-mono);font-size:9px;letter-spacing:.08em;color:var(--ink);background:rgba(230,220,203,.06);border:1px solid var(--line);padding:4px 7px;cursor:pointer}
+.pr button.on{border-color:var(--tan);color:#141410;background:var(--tan)}
+.pr select{grid-column:2;font-family:var(--f-mono);font-size:10px;background:#1c1d17;color:var(--ink);border:1px solid var(--line);padding:3px}
+.planbox .btns button{font-size:12px;padding:8px 18px;border-color:var(--tan);color:var(--tan)}
+.planbox .hint,.planbox .note{color:var(--dim);font-size:10px}
+/* pause & over */
+#pause .box,#over .box{max-width:min(720px,94vw);max-height:92vh;overflow:auto}
+#pause .col,#start .col{display:grid;gap:6px;max-width:280px;margin:14px auto}
+#pause .sub,#over .sub,#start .sub{font-family:var(--f-disp);font-weight:700;font-size:13px;letter-spacing:.16em;color:var(--tan);margin-top:12px}
+#pause label.file{display:block;cursor:pointer;font-family:var(--f-disp);font-weight:700;letter-spacing:.14em;border:1px solid var(--line);padding:10px;text-align:center;color:var(--ink);font-size:14px}
+#pause label.file input{display:none}
+#pause button:disabled{opacity:.35}
+table.board{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:11px;color:var(--dim);margin-top:4px}
+table.board th{font-weight:600;font-size:9px;letter-spacing:.12em;text-align:left;color:var(--dim);padding:3px 6px}
+table.board td{padding:3px 6px;border-top:1px solid rgba(230,220,203,.07)} table.board td:nth-child(2){color:var(--ink)}
+table.board tr.hl td{color:var(--tan)}
+#over .stats2{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--f-mono);font-size:10px;color:var(--dim);margin-top:10px} #over .stats2 b{color:var(--ink)}
+#overS p{line-height:1.6}
+#pause{z-index:40} #pause .col button,#start .col button{font-size:16px;justify-self:stretch} #over{z-index:40}
+#over,#pause{background:rgba(12,11,10,.9)}
