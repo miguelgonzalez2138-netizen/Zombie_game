@@ -3,12 +3,13 @@
 // Classic script: shares globals with the other files, load order matters (see index.html).
 
 /* ---------- audio ---------- */
-let AC=null, master=null, noiseBuf=null;
+let AC=null, master=null, noiseBuf=null, muffle=null;
 function initAudio(){
   if(AC) return;
   try{
     AC=new (window.AudioContext||window.webkitAudioContext)();
-    master=AC.createGain(); master.gain.value=0.55; master.connect(AC.destination);
+    master=AC.createGain(); master.gain.value=0.55;
+    muffle=AC.createBiquadFilter(); muffle.type='lowpass'; muffle.frequency.value=20000; muffle.Q.value=0.5; master.connect(muffle); muffle.connect(AC.destination);
     noiseBuf=AC.createBuffer(1,AC.sampleRate,AC.sampleRate); const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
     const bed=(type,freq,q,vol)=>{ const n=AC.createBufferSource(); n.buffer=noiseBuf; n.loop=true; n.playbackRate.value=rand(.9,1.1);
       const f=AC.createBiquadFilter(); f.type=type; f.frequency.value=freq; f.Q.value=q; const g=AC.createGain(); g.gain.value=vol;
@@ -22,12 +23,18 @@ function initAudio(){
     hum.connect(hf); hf.connect(hg); hg.connect(master); hum.start(); amb.hum={g:hg};
   }catch(e){AC=null;}
 }
-function sGun(dist){
-  if(!AC) return; const t=AC.currentTime, att=1/(1+dist*0.06);
+// gunshots by weapon: rifle, mg, big (.308/.357), shot(gun), pistol, small (.22), and suppressed
+const GUN_SND={rifle:[3000,0.9,0.32,0],mg:[2400,1.0,0.34,60],big:[2000,1.15,0.6,48],shot:[1800,1.2,0.5,55],pistol:[3600,0.7,0.24,0],small:[4200,0.45,0.14,0]};
+function sGun(dist,kind,supp,pan){
+  if(!AC) return; const t=AC.currentTime, att=1/(1+dist*0.06), out=outNode(pan||0,1);
+  if(supp){ const g=AC.createGain(); g.connect(out); env(g,t,0.002,0.22*att,0.09); nz(t,0.12,'bandpass',rand(900,1300),1.2,g);
+    const g2=AC.createGain(); g2.connect(out); env(g2,t+0.01,0.001,0.05*att,0.04); osc(t+0.01,0.05,'square',rand(1800,2200),900,g2); return; }
+  const P=GUN_SND[kind]||GUN_SND.rifle;
   const s=AC.createBufferSource(); s.buffer=noiseBuf; s.playbackRate.value=rand(.8,1.1);
-  const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.setValueAtTime(rand(2600,3600)*att+400,t); f.frequency.exponentialRampToValueAtTime(260,t+0.22);
-  const g=AC.createGain(); g.gain.setValueAtTime(0.9*att,t); g.gain.exponentialRampToValueAtTime(0.0008,t+0.32);
-  s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+0.35);
+  const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.setValueAtTime(rand(P[0]*0.85,P[0]*1.15)*att+400,t); f.frequency.exponentialRampToValueAtTime(220,t+P[2]*0.7);
+  const g=AC.createGain(); g.gain.setValueAtTime(P[1]*att,t); g.gain.exponentialRampToValueAtTime(0.0008,t+P[2]);
+  s.connect(f); f.connect(g); g.connect(out); s.start(t); s.stop(t+P[2]+0.05);
+  if(P[3]){ const g3=AC.createGain(); g3.connect(out); env(g3,t,0.002,0.5*att,P[2]*0.8); osc(t,P[2],'sine',P[3]*2,P[3]*0.6,g3); }
 }
 function sMoan(dist){
   if(!AC||dist>40) return; const t=AC.currentTime, att=1/(1+dist*0.12);
@@ -79,6 +86,17 @@ const SFX={
   creak(pan,vol){ const t0=AC.currentTime, o=outNode(pan,vol), bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=6; bp.connect(o);
     const g=AC.createGain(); g.connect(bp); env(g,t0,0.03,0.12,0.35); const s=AC.createOscillator(); s.type='sawtooth'; s.frequency.setValueAtTime(rand(180,260),t0); s.frequency.linearRampToValueAtTime(rand(120,170),t0+0.35); s.connect(g); s.start(t0); s.stop(t0+0.42);
     const g2=AC.createGain(); g2.connect(o); env(g2,t0+0.3,0.005,0.12,0.12); nz(t0+0.3,0.15,'lowpass',300,1,g2); },
+  boom(pan,vol){ const t=AC.currentTime, o=outNode(pan,vol); const g=AC.createGain(); g.connect(o); env(g,t,0.003,1.2,1.6); nz(t,1.8,'lowpass',520,0.8,g);
+    const g2=AC.createGain(); g2.connect(o); env(g2,t,0.003,0.9,0.9); osc(t,1,'sine',90,28,g2);
+    const g3=AC.createGain(); g3.connect(o); env(g3,t+0.05,0.01,0.12,2.2); nz(t+0.05,2.4,'bandpass',1800,1.5,g3); },
+  click(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.001,0.12,0.03); nz(t,0.04,'bandpass',2600,4,g); },
+  rack(pan,vol){ const t=AC.currentTime; for(const [dt,f] of [[0,1800],[0.12,2400]]){ const g=outNode(pan,vol); env(g,t+dt,0.001,0.14,0.05); nz(t+dt,0.06,'bandpass',f,3,g);} },
+  swing(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.06,0.09,0.12); const f=nz(t,0.22,'bandpass',600,1.4,g); f.frequency.setValueAtTime(400,t); f.frequency.linearRampToValueAtTime(1400,t+0.15); },
+  chop(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.001,0.4,0.12); nz(t,0.15,'lowpass',900,1,g); const g2=AC.createGain(); g2.connect(g); osc(t,0.1,'triangle',160,60,g2); },
+  bottle(pan,vol){ const t=AC.currentTime; for(let i=0;i<5;i++){ const g=outNode(pan,vol); env(g,t+i*0.02,0.001,0.08,0.2); nz(t+i*0.02,0.25,'highpass',rand(2500,5000),5,g);} const g=outNode(pan,vol); env(g,t,0.05,0.25,0.9); nz(t,1,'lowpass',700,0.7,g); },
+  beep(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.003,0.06,0.08); osc(t,0.1,'square',2100,2100,g); },
+  heart(vol){ const t=AC.currentTime; for(const dt of [0,0.22]){ const g=outNode(0,vol); env(g,t+dt,0.01,dt?0.25:0.4,0.14); osc(t+dt,0.16,'sine',62,40,g);} },
+  kick(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.002,0.7,0.25); nz(t,0.3,'lowpass',420,1,g); const g2=AC.createGain(); g2.connect(g); osc(t,0.2,'triangle',120,45,g2); },
   crackle(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.001,0.06,0.03); nz(t,0.05,'highpass',rand(1500,4000),1,g); },
 };
 const AMB_DAY=[['birds',5],['crow',3],['dog',2],['clang',2],['drip',2],['alarm',1],['glass',1],['farShot',0.6],['siren',0.3]];

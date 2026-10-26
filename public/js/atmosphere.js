@@ -2,20 +2,20 @@
 // Fog Line — Tracers, mist, halos, beams, fire and smoke, pigeons, rats, trash, windows, spatial grid, walkable space.
 // Classic script: shares globals with the other files, load order matters (see index.html).
 
-let bIdx=0;
+let bIdx=0; const bF=new Float32Array(MAXB);
 const imBrass=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.018,0.018,0.07,5).rotateZ(Math.PI/2),new THREE.MeshPhongMaterial({color:0xb08a3e,specular:0xffe2a0,shininess:80}),MAXB);
 imBrass.frustumCulled=false; imBrass.instanceMatrix.setUsage(THREE.DynamicDrawUsage); onCharLayer(imBrass); scene.add(imBrass);
 for(let i=0;i<MAXB;i++) imBrass.setMatrixAt(i,zeroM);
 function eject(s){
   bIdx=(bIdx+1)%MAXB; const j=bIdx, a=s.ang, rx=Math.cos(a), rz=-Math.sin(a);
-  bX[j]=s.x+rx*0.25+Math.sin(a)*0.2; bY[j]=1.5; bZ[j]=s.z+rz*0.25+Math.cos(a)*0.2;
+  bX[j]=s.x+rx*0.25+Math.sin(a)*0.2; bY[j]=(s.y||0)+1.5; bF[j]=s.y||0; bZ[j]=s.z+rz*0.25+Math.cos(a)*0.2;
   bVX[j]=rx*rand(2,3.4)-Math.sin(a)*rand(.3,.9); bVZ[j]=rz*rand(2,3.4)-Math.cos(a)*rand(.3,.9); bVY[j]=rand(1.8,3); bR[j]=rand(0,6); bLive[j]=1;
 }
 function updateBrass(dt){
   let any=false;
   for(let j=0;j<MAXB;j++){ if(!bLive[j]) continue; any=true;
     bVY[j]-=14*dt; bX[j]+=bVX[j]*dt; bY[j]+=bVY[j]*dt; bZ[j]+=bVZ[j]*dt; bR[j]+=dt*25;
-    if(bY[j]<0.03){ bY[j]=0.03; if(Math.abs(bVY[j])>1){ bVY[j]*=-0.35; bVX[j]*=0.5; bVZ[j]*=0.5; const ps=squad[me]; const d=Math.hypot(bX[j]-ps.x,bZ[j]-ps.z); if(AC&&d<10&&Math.random()<.5) SFX.tink(0,0.5/(1+d*0.4)); }
+    if(bY[j]<bF[j]+0.03){ bY[j]=bF[j]+0.03; if(Math.abs(bVY[j])>1){ bVY[j]*=-0.35; bVX[j]*=0.5; bVZ[j]*=0.5; const ps=squad[me]; const d=Math.hypot(bX[j]-ps.x,bZ[j]-ps.z); if(AC&&d<10&&Math.random()<.5) SFX.tink(0,0.5/(1+d*0.4)); }
       else { bLive[j]=0; bR[j]=rand(0,6); } }
     dummy.position.set(bX[j],bY[j],bZ[j]); dummy.rotation.set(0,bR[j],bLive[j]?bR[j]*0.6:0); dummy.scale.set(1,1,1); dummy.updateMatrix(); imBrass.setMatrixAt(j,dummy.matrix);
   }
@@ -57,7 +57,7 @@ function tracer(x0,z0,x1,z1,y){
 }
 
 /* ---------- atmosphere: knee-high mist, halos, beams, fire & smoke ---------- */
-const MAXFL=10;
+const MAXFL=14;
 const fxL=[]; // light sources the mist glows around: {x,y,z,r,col,k}
 function fxLight(x,y,z,r,hex){ const o={x,y,z,r,col:new THREE.Color(hex),k:0}; fxL.push(o); return o; }
 const mistU={uTime:{value:0},uCol:{value:new THREE.Color(0x3a3631)},uDen:{value:0.3},uCenter:{value:new THREE.Vector2()},
@@ -145,7 +145,8 @@ const muzzle=[0,1].map(()=>{ const s=makeSprite(texFlash,0xffe8c0,true,1.9); s.v
 const lensHalos=squad.map(()=>makeSprite(texHalo,0xfff2d8,true,1.1));
 const FL={work:fxLight(LIGHT_WORK.x,3.3,LIGHT_WORK.z,9,0xffd29a),barrel:fxLight(LIGHT_BARREL.x,1.2,LIGHT_BARREL.z,6,0xff8a3a),door:fxLight(DOOR.x+0.6,1.8,DOOR.z,5,0xffb06a),
   lamp:fxLight(LAMP.x,5,LAMP.z,7,0xc8d4ff),car:fxLight(CARFIRE.x,1.6,CARFIRE.z,9,0xff7a2a),f0:fxLight(0,0.5,0,6,0xff2a1e),f1:fxLight(0,0.5,0,6,0xff2a1e),
-  mz0:fxLight(0,1.5,0,7,0xffd08a),mz1:fxLight(0,1.5,0,7,0xffd08a),me:fxLight(0,1.2,0,6,0xfff0d0)};
+  mz0:fxLight(0,1.5,0,7,0xffd08a),mz1:fxLight(0,1.5,0,7,0xffd08a),me:fxLight(0,1.2,0,6,0xfff0d0),
+  boom:fxLight(0,1,0,12,0xffb060),fire0:fxLight(0,1,0,7,0xff7a2a),fire1:fxLight(0,1,0,7,0xff7a2a)};
 for(const s of squad){ s.cone=makeCone(s.i===0?13:10,0.3); }
 
 /* ---------- small signs of life ---------- */

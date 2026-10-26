@@ -20,6 +20,7 @@
     <div id="phase">Fog thin</div>
     <div id="horde">Horde: not seen</div>
     <div id="where">Wolcott Ave</div>
+    <div id="stance"></div>
     <div class="meter"><span>NOISE</span><i><b id="noiseBar"></b></i></div>
   </div>
   <canvas id="minimap" width="180" height="180"></canvas>
@@ -30,11 +31,22 @@
     <div id="squad"></div>
   </div>
   <div id="orders"></div>
-  <div id="keys">
-    <kbd>WASD</kbd> move &nbsp;<kbd>Mouse</kbd> aim &nbsp;<kbd>Click</kbd> fire &nbsp;<kbd>R</kbd> reload<br>
-    <kbd>V</kbd>/<kbd>RMB</kbd> shove &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
-    <kbd>1</kbd> hold &nbsp;<kbd>2</kbd> follow &nbsp;<kbd>3</kbd> fall back &nbsp;<kbd>4</kbd> fire / quiet<br>
-    <kbd>Q</kbd> swap &nbsp;<kbd>E</kbd> door / repair &nbsp;<kbd>M</kbd> map &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>H</kbd> hide
+  <div id="br">
+    <div id="keys">
+      <kbd>WASD</kbd> move &nbsp;<kbd>Shift</kbd> sprint &nbsp;<kbd>C</kbd> sneak &nbsp;<kbd>Space</kbd> dodge / vault<br>
+      <kbd>Click</kbd> fire / swing &nbsp;<kbd>R</kbd> reload &nbsp;<kbd>X</kbd> weapon &nbsp;<kbd>B</kbd> fire mode &nbsp;<kbd>N</kbd> suppressor<br>
+      <kbd>V</kbd>/<kbd>RMB</kbd> shove · kick door · quiet kill &nbsp;<kbd>G</kbd> hold to throw &nbsp;<kbd>T</kbd> next throwable<br>
+      <kbd>E</kbd> pick up / door / repair &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
+      <kbd>1</kbd> hold &nbsp;<kbd>2</kbd> follow &nbsp;<kbd>3</kbd> fall back &nbsp;<kbd>4</kbd> fire / quiet &nbsp;<kbd>Q</kbd> swap soldier<br>
+      <kbd>M</kbd> map &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>Esc</kbd> pause &nbsp;<kbd>H</kbd> hide keys
+    </div>
+    <div id="wpn">
+      <div class="wn"><span id="wName">M4 CARBINE</span><span id="wTags"></span></div>
+      <div class="wa"><b id="wMag">30</b><span id="wPool">/ 300 5.56</span><span id="wMode">AUTO</span></div>
+      <div class="bar r"><b id="wRel"></b></div>
+      <div id="wThr"></div>
+      <div class="meter"><span>STAMINA</span><i><b id="wStam"></b></i></div>
+    </div>
   </div>
 </div>
 
@@ -62,7 +74,9 @@
     <p>Second squad was told to hold Wolcott &amp; 18th until the trucks came back. That was eleven days ago. The horde moves along 18th most nights, behind the fog. Keep the line up, keep it quiet, and let it pass.</p>
     <div class="ctl">
       <b>WASD / Mouse</b><span>Move and aim. Click to fire. Every shot carries.</span>
-      <b>V or right-click</b><span>Shove. Quiet.</span>
+      <b>Shift C Space</b><span>Sprint (loud), sneak (quiet), dodge or vault whatever's in front of you.</span>
+      <b>V or right-click</b><span>Shove. Kicks a door in. From behind or sneaking, a quiet kill.</span>
+      <b>X B G</b><span>Switch weapon, fire mode, hold G to throw.</span>
       <b>1 2 3 4</b><span>Hold the line, follow me, fall back to the shop, weapons free or hold fire.</span>
       <b>Q E L F</b><span>Swap soldier, repair a barricade, kill the line lights, flashlight.</span>
       <b>Touch</b><span>Left thumb moves, right thumb aims and fires.</span>
@@ -89,6 +103,7 @@
 <script src="js/actors.js"></script>
 <script src="js/atmosphere.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/weapons.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

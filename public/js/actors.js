@@ -47,25 +47,8 @@ function soldierMesh(idx){
     if(idx===3){ for(let k=0;k<3;k++){ const n=box(head,0.33,0.012,0.012,matGoggle,0,0.31,-0.08+k*0.08); } }
   }
   const W=new THREE.Group(); torso.add(W);
-  const gun=new THREE.Group(); gun.position.set(0.1,0.42,0.22); W.add(gun);
-  box(gun,0.07,0.11,0.5,matGun,0,0,0.12);
-  box(gun,0.035,0.035,idx===2?0.6:0.44,matGun,0,0.02,idx===2?0.66:0.58);
-  box(gun,0.06,0.1,0.24,matGun,0,-0.02,-0.22);
-  box(gun,0.05,0.17,0.08,matGun,0,-0.12,0.14);
-  box(gun,idx===2?0.07:0.05,idx===2?0.07:0.05,idx===2?0.24:0.14,matGun,0,idx===2?0.1:0.08,0.05);
-  g.updateMatrixWorld(true);
+  // weapon, arms and hands are built per weapon in weapons.js (setHold)
   const arms=[];
-  const arm=(sx,hand)=>{
-    const sh=new THREE.Vector3(sx*0.28,0.56,0), d=hand.clone().sub(sh), L=d.length();
-    const m=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,L),M.uni); m.castShadow=true;
-    m.position.copy(sh).add(hand).multiplyScalar(0.5); W.add(m);
-    m.lookAt(hand.clone().add(new THREE.Vector3(0,0.86,0)));
-    box(W,0.09,0.09,0.09,matSkin,hand.x,hand.y,hand.z);
-    const band=new THREE.Mesh(new THREE.BoxGeometry(0.135,0.135,0.11),matBandage); band.position.z=L*0.15; band.visible=false; m.add(band);
-    arms.push(band);
-  };
-  arm(1,new THREE.Vector3(0.12,0.38,0.2));
-  arm(-1,new THREE.Vector3(0.08,0.43,0.6));
   g.userData={legs,torso,W,M,headBand,armBands:arms,base:{uni:M.uni.color.clone(),uni2:M.uni2.color.clone(),vest:M.vest.color.clone(),pack:M.pack.color.clone()}};
   return g;
 }
@@ -78,18 +61,19 @@ function applyWear(s){
   u.headBand.visible=s.hp<35;
 }
 const SQUAD_DEF=[
-  {name:'Cpl. Reyes',short:'REYES',trait:'steady',acc:.62,stress:.9,melee:1.0,post:{x:-2.2,z:-12.0}},
-  {name:'Pvt. Dunn',short:'DUNN',trait:'jumpy',acc:.48,stress:1.7,melee:.9,post:{x:-8.5,z:-12.0}},
-  {name:'PFC Kowalski',short:'KOWALSKI',trait:'marksman',acc:.76,stress:1.0,melee:.9,post:{x:2.8,z:-12.0}},
-  {name:'Pvt. Hale',short:'HALE',trait:'quiet',acc:.5,stress:.8,melee:1.7,post:{x:8.6,z:-12.0}},
+  {name:'Cpl. Reyes',short:'REYES',trait:'steady',acc:.62,stress:.9,melee:1.0,kit:['m4','m9',null],bay:true,post:{x:-2.2,z:-12.0}},
+  {name:'Pvt. Dunn',short:'DUNN',trait:'jumpy',acc:.48,stress:1.7,melee:.9,kit:['saw','m9',null],post:{x:-8.5,z:-12.0}},
+  {name:'PFC Kowalski',short:'KOWALSKI',trait:'marksman',acc:.76,stress:1.0,melee:.9,kit:['m24','m9',null],post:{x:2.8,z:-12.0}},
+  {name:'Pvt. Hale',short:'HALE',trait:'quiet',acc:.5,stress:.8,melee:1.7,kit:['m870',null,'bat'],post:{x:8.6,z:-12.0}},
 ];
 const FOLLOW_SLOTS=[{x:-1.6,z:1.8},{x:1.6,z:1.8},{x:0,z:3.0}];
 const BACK_SPOTS=[{x:-14.6,z:11.4},{x:-15.2,z:14},{x:-14.6,z:16.6},{x:-17,z:13}];
 const squad=SQUAD_DEF.map((d,i)=>{
-  const mesh=soldierMesh(i); mesh.scale.setScalar(1.2); onCharLayer(mesh); scene.add(mesh);
+  const mesh=soldierMesh(i); mesh.scale.setScalar(1.2); mesh.rotation.order='YXZ'; onCharLayer(mesh); scene.add(mesh);
   const light=new THREE.SpotLight(0xfff0d0,i===0?1.7:0.9,i===0?32:22,0.42,0.6,1.4);
   const tgt=new THREE.Object3D(); scene.add(tgt); light.target=tgt; light.layers.enableAll(); scene.add(light);
-  return Object.assign({},d,{i,x:d.post.x,z:d.post.z,ang:Math.PI,hp:100,mag:30,res:120,reloadT:0,fireCD:0,meleeCD:0,stress:0,alive:true,
+  return Object.assign({},d,{i,x:d.post.x,z:d.post.z,ang:Math.PI,hp:100,reloadT:0,reloadMax:1,reloadW:'',magOut:false,fireCD:0,inv:d.kit.slice(),slot:0,wpn:d.kit[0],mags:{},modes:{},supp:{},bloom:0,drawT:0,cycleT:0,trig:true,
+    stam:100,stamT:0,sprint:false,sneak:false,dodge:null,vault:null,iframe:0,actT:0,swingT:0,kickT:0,throwT:0,hiding:false,loudT:0,burst:0,stepD:0,meleeCD:0,stress:0,alive:true,
     mesh,light,tgt,lightOn:true,panic:0,status:'HOLD',near:0,sight:7,vx:0,vz:0,walk:0,recoil:0,shoveT:0,boots:0,step:0,foot:1,L:0,trav:null,y:0,field:null,goalKey:''});
 });
 let me=0;
@@ -107,6 +91,8 @@ const ztgt=new Int8Array(MAXZ);
 // levels and stairs: which floor each zombie is on, its height, and any stair or window climb in progress
 const zl=new Int8Array(MAXZ), zyv=new Float32Array(MAXZ), ztr=new Array(MAXZ).fill(null);
 const zLosT=new Float32Array(MAXZ), zDirect=new Uint8Array(MAXZ), zSees=new Int8Array(MAXZ).fill(-1);
+// on fire, staggered by a hit, and how long since it last saw its target
+const zburn=new Float32Array(MAXZ), zstun=new Float32Array(MAXZ), zLost=new Float32Array(MAXZ);
 const zvar=new Uint8Array(MAXZ);           // gait: 0 shambler 1 big 2 limper 3 crawler
 const zhunch=new Float32Array(MAXZ), zarmL=new Uint8Array(MAXZ), zarmR=new Uint8Array(MAXZ), ztilt=new Float32Array(MAXZ), zsc=new Float32Array(MAXZ), zfl=new Float32Array(MAXZ);
 const zout=new Uint8Array(MAXZ);   // outfit: 0 civilian 1 cop 2 soldier 3 hospital gown 4 hi-vis vest
