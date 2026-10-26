@@ -21,21 +21,13 @@ function updateBrass(dt){
   }
   if(any) imBrass.instanceMatrix.needsUpdate=true;
 }
-// where a missed round actually lands: a wall if it leaves the street, the asphalt otherwise
-function impactPoint(x0,z0,x1,z1){
-  const L=Math.hypot(x1-x0,z1-z0), n=Math.ceil(L/0.5);
-  for(let k=1;k<=n;k++){ const t=k/n, x=x0+(x1-x0)*t, z=z0+(z1-z0)*t;
-    const inMain=Math.abs(x)<=12.4&&z>=ST_Z0&&z<=ST_Z1, inCross=z>=CR_Z0-2&&z<=CR_Z1+2&&Math.abs(x)<=CR_X;
-    if(!inMain&&!inCross) return {x,z,wall:true}; }
-  return {x:x1,z:z1,wall:false};
-}
-function impact(x0,z0,x1,z1){
-  const hp=impactPoint(x0,z0,x1,z1), dx=(x1-x0), dz=(z1-z0), L=Math.hypot(dx,dz)||1, ux=dx/L, uz=dz/L;
-  const y=hp.wall?rand(0.8,1.8):0.05;
+// sparks, dust and chips where a round lands: on a wall if it hit one, otherwise on the floor
+function impact(hx,hz,y0,ux,uz,wall){
+  const hp={x:hx,z:hz,wall}, y=wall?y0+rand(0.8,1.8):y0+0.05;
   for(let k=0;k<6;k++) emit(true,hp.x,y,hp.z,-ux*rand(1,4)+rand(-2,2),rand(.5,3),-uz*rand(1,4)+rand(-2,2),rand(.08,.18),rand(.12,.2),0.04,0xffe0a0,1);
   emit(false,hp.x,y,hp.z,-ux*0.6,rand(.3,.7),-uz*0.6,rand(.7,1.2),0.3,1.4,0x9a9690,0.45);
   chips(hp.x,y,hp.z,hp.wall?4:3,-ux,-uz,hp.wall?0x8a8f92:0x34373b);
-  if(!hp.wall&&Math.random()<.5) splat(hp.x,hp.z,0.09,0.09);
+  if(!hp.wall&&y0<0.5&&Math.random()<.5) splat(hp.x,hp.z,0.09,0.09);
   return hp;
 }
 function updateSegVisual(g){
@@ -58,9 +50,9 @@ for(let i=0;i<28;i++){
   const l=new THREE.Line(g,matTracer); l.visible=false; l.frustumCulled=false; onCharLayer(l); scene.add(l); tracers.push({l,t:0});
 }
 let trIdx=0;
-function tracer(x0,z0,x1,z1){
-  const t=tracers[trIdx]; trIdx=(trIdx+1)%tracers.length;
-  const p=t.l.geometry.attributes.position; p.setXYZ(0,x0,1.3,z0); p.setXYZ(1,x1,1.1,z1); p.needsUpdate=true;
+function tracer(x0,z0,x1,z1,y){
+  const t=tracers[trIdx]; trIdx=(trIdx+1)%tracers.length; y=y||0;
+  const p=t.l.geometry.attributes.position; p.setXYZ(0,x0,y+1.3,z0); p.setXYZ(1,x1,y+1.1,z1); p.needsUpdate=true;
   t.l.visible=true; t.t=0.05;
 }
 
@@ -238,28 +230,29 @@ for(let i=0;i<14;i++){
 function updatePapers(dt,p){
   const wx=1.0, wz=-0.45;
   for(const q of papers){
-    if(Math.hypot(q.x-p.x,q.z-p.z)>38){ q.x=p.x-wx*rand(20,32)+rand(-6,6); q.z=p.z-wz*rand(20,32)+rand(-25,25); q.x=clamp(q.x,-11.5,11.5); q.y=0.03; }
+    if(Math.hypot(q.x-p.x,q.z-p.z)>38){ for(let t=0;t<8;t++){ const nx=p.x-wx*rand(20,32)+rand(-6,6), nz=p.z-wz*rand(20,32)+rand(-25,25); if(streetOpen(nx,nz)){ q.x=nx; q.z=nz; break; } } q.y=0.03; }
     const push=Math.max(0,G.gust-0.25)*rand(4,7);
     q.vx=lerp(q.vx,wx*push,dt*2); q.vz=lerp(q.vz,wz*push,dt*2);
     if(push>1.5&&q.y<0.05&&Math.random()<dt*1.5) q.vy=rand(1,2.5);
     q.vy-=dt*6; q.y=Math.max(0.03,q.y+q.vy*dt); if(q.y<=0.03) q.vy=0;
-    P.x=q.x+q.vx*dt; P.z=q.z+q.vz*dt; clampWalk(); q.x=P.x; q.z=P.z;
+    { const nx=q.x+q.vx*dt, nz=q.z+q.vz*dt; if(streetOpen(nx,nz)){ q.x=nx; q.z=nz; } else { q.vx*=-0.3; q.vz*=-0.3; } }
     const sp=Math.hypot(q.vx,q.vz); q.spin+=dt*sp*4;
     q.m.position.set(q.x,q.y,q.z);
     q.m.rotation.set(q.y>0.05?-Math.PI/2+Math.sin(q.spin)*1.2:-Math.PI/2,q.ry+q.spin*0.3,0);
   }
 }
-// a few windows where somebody is still home
+// a few windows where somebody is still home: real windows on upper floors near the compound
 const litWindows=[];
 {
-  const matWin=()=>new THREE.MeshBasicMaterial({color:0x000000});
-  const picks=frontBlocks.filter(b=>b.z1>-70&&b.z0<70&&!(b.side<0&&b.z0<=14&&b.z1>=14)).sort(()=>Math.random()-.5).slice(0,5);
-  for(const b of picks){
-    const floor=1+(Math.random()*Math.max(1,Math.floor(b.h/3.5)-2)|0);
-    const z=rand(b.z0+1.5,b.z1-1.5), y=floor*3.5+1.8;
-    const m=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.5),matWin());
-    m.position.set(b.side*12.47,y,z); m.rotation.y=b.side>0?-Math.PI/2:Math.PI/2; scene.add(m);
-    litWindows.push({m,x:b.side*12.5,z,ph:Math.random()*10,off:0,candle:Math.random()<.6});
+  const cands=[]; for(let e=1;e<EN;e++){ if(ED.t[e]!==ET.WIN||ED.L[e]<1||!OPEN[e]) continue; const B=MAP.blds[ED.b[e]]; if(!B||B.kind==='base') continue;
+    const O=OPEN[e]; if(Math.abs(O.z)>90||Math.abs(O.x)>70) continue; cands.push(e); }
+  for(let k=0;k<7&&cands.length;k++){
+    const e=cands.splice(Math.floor(Math.random()*cands.length),1)[0], O=OPEN[e];
+    const g=new THREE.PlaneGeometry(0.86,(O.yt-O.yb)*0.92); g.setAttribute('bid',new THREE.BufferAttribute(new Float32Array(4).fill(ED.b[e]),1));
+    const m=new THREE.Mesh(g,cutPatch(new THREE.MeshBasicMaterial({color:0x000000})));
+    const nx=O.ax==='x'?O.out:0, nz=O.ax==='z'?O.out:0;
+    m.position.set(O.x-nx*0.05,(O.yb+O.yt)/2,O.z-nz*0.05); m.rotation.y=O.ax==='x'?Math.PI/2:0; scene.add(m);
+    litWindows.push({m,x:O.x,z:O.z,ph:Math.random()*10,off:0,candle:Math.random()<.6});
   }
 }
 function updateWindows(dt,time){
@@ -273,36 +266,22 @@ function updateWindows(dt,time){
 }
 
 /* ---------- spatial grid ---------- */
-const CELL=2.5, GX0=-185, GZ0=-135, GW=148, GH=108;
-const cellHead=new Int32Array(GW*GH), cellNext=new Int32Array(MAXZ);
-const cellOf=(x,z)=>clamp(Math.floor((z-GZ0)/CELL),0,GH-1)*GW+clamp(Math.floor((x-GX0)/CELL),0,GW-1);
+const CELL=2.5, SGX0=-200, SGZ0=-170, SGW=160, SGH=128;
+const cellHead=new Int32Array(SGW*SGH), cellNext=new Int32Array(MAXZ);
+const cellOf=(x,z)=>clamp(Math.floor((z-SGZ0)/CELL),0,SGH-1)*SGW+clamp(Math.floor((x-SGX0)/CELL),0,SGW-1);
 function rebuildGrid(){ cellHead.fill(-1); for(let i=0;i<MAXZ;i++){ if(!zst[i]||zst[i]===5) continue; const c=cellOf(zx[i],zz[i]); cellNext[i]=cellHead[c]; cellHead[c]=i; } }
 function eachNear(x,z,r,cb){
-  const cr=Math.ceil(r/CELL), cx=clamp(Math.floor((x-GX0)/CELL),0,GW-1), cz=clamp(Math.floor((z-GZ0)/CELL),0,GH-1);
-  for(let gz=Math.max(0,cz-cr);gz<=Math.min(GH-1,cz+cr);gz++) for(let gx=Math.max(0,cx-cr);gx<=Math.min(GW-1,cx+cr);gx++){
-    for(let j=cellHead[gz*GW+gx];j!==-1;j=cellNext[j]) cb(j);
+  const cr=Math.ceil(r/CELL), cx=clamp(Math.floor((x-SGX0)/CELL),0,SGW-1), cz=clamp(Math.floor((z-SGZ0)/CELL),0,SGH-1);
+  for(let gz=Math.max(0,cz-cr);gz<=Math.min(SGH-1,cz+cr);gz++) for(let gx=Math.max(0,cx-cr);gx<=Math.min(SGW-1,cx+cr);gx++){
+    for(let j=cellHead[gz*SGW+gx];j!==-1;j=cellNext[j]) cb(j);
   }
 }
 
 /* ---------- walkable space ---------- */
-const P={x:0,z:0};
-const SHOP_IN={x0:SHOP.x0+0.65,x1:SHOP.x1-0.65,z0:SHOP.z0+0.65,z1:SHOP.z1-0.65}, SHOP_DOOR={x0:SHOP.x1-0.9,x1:-WALK_W+0.1,z0:SHOP.doorZ0+0.35,z1:SHOP.doorZ1-0.35};
-function inRect(r){ return P.x>=r.x0&&P.x<=r.x1&&P.z>=r.z0&&P.z<=r.z1; }
-function clampWalk(){
-  const inMain=Math.abs(P.x)<=WALK_W&&P.z>=ST_Z0&&P.z<=ST_Z1;
-  const inCross=P.z>=CR_Z0&&P.z<=CR_Z1&&Math.abs(P.x)<=CR_X;
-  if(inMain||inCross) return;
-  if(inRect(SHOP_IN)||inRect(SHOP_DOOR)){ for(const c of shopCols){ if(P.x>c.x0-0.3&&P.x<c.x1+0.3&&P.z>c.z0-0.3&&P.z<c.z1+0.3){ const l=P.x-(c.x0-0.3), r=(c.x1+0.3)-P.x, u=P.z-(c.z0-0.3), d=(c.z1+0.3)-P.z, m=Math.min(l,r,u,d);
-      if(m===l) P.x=c.x0-0.3; else if(m===r) P.x=c.x1+0.3; else if(m===u) P.z=c.z0-0.3; else P.z=c.z1+0.3; } } return; }
-  // nearest of all walkable rects
-  let bx=P.x,bz=P.z,bd=1e9;
-  for(const r of [{x0:-WALK_W,x1:WALK_W,z0:ST_Z0,z1:ST_Z1},{x0:-CR_X,x1:CR_X,z0:CR_Z0,z1:CR_Z1},SHOP_IN,SHOP_DOOR]){
-    const x=clamp(P.x,r.x0,r.x1), z=clamp(P.z,r.z0,r.z1), d=(P.x-x)**2+(P.z-z)**2; if(d<bd){bd=d;bx=x;bz=z;} }
-  P.x=bx; P.z=bz; return;
-  const mx=clamp(P.x,-WALK_W,WALK_W), mz=clamp(P.z,ST_Z0,ST_Z1);
-  const cx=clamp(P.x,-CR_X,CR_X), cz=clamp(P.z,CR_Z0,CR_Z1);
-  if((P.x-mx)**2+(P.z-mz)**2 < (P.x-cx)**2+(P.z-cz)**2){P.x=mx;P.z=mz;} else {P.x=cx;P.z=cz;}
-}
-function pushColliders(r){
-  for(const c of colliders){const dx=P.x-c.x,dz=P.z-c.z,d2=dx*dx+dz*dz,rr=c.r+r; if(d2<rr*rr&&d2>1e-6){const d=Math.sqrt(d2),k=(rr-d)/d;P.x+=dx*k;P.z+=dz*k;}}
+const P={x:0,z:0,L:0,trav:null};
+// outdoors at street level and free of walls, props and buildings
+function streetOpen(x,z){ const cx=Math.floor(x), cz=Math.floor(z); if(!inMap(cx,cz)) return false; const c=CI(cx,cz); return MAP.bld[0][c]<0&&MAP.block[0][c]===BLK.FREE; }
+// round props (cars, sandbags, the barrel) are circles on top of the grid
+function pushCircles(o,r){
+  for(const c of colliders){const dx=o.x-c.x,dz=o.z-c.z,d2=dx*dx+dz*dz,rr=c.r+r; if(d2<rr*rr&&d2>1e-6){const d=Math.sqrt(d2),k=(rr-d)/d;o.x+=dx*k;o.z+=dz*k;}}
 }

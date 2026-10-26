@@ -82,3 +82,11 @@ body.touch #squad{grid-template-columns:repeat(4,minmax(0,1fr));width:min(420px,
 body.touch #radio{top:calc(12px + env(safe-area-inset-top,0px))}
 @media (max-width:520px){ #radio{display:none} #squad{grid-template-columns:repeat(4,minmax(0,1fr));width:calc(100vw - 32px)} }
 @media (max-width:900px){ #orders{display:none} }
+
+#where{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--tan)}
+#minimap{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));width:180px;height:180px;image-rendering:pixelated;border:1px solid var(--line);background:#111}
+#radio{top:calc(204px + env(safe-area-inset-top,0px))!important}
+#bigmap{position:fixed;inset:0;z-index:4;display:grid;place-items:center;align-content:center;gap:8px;background:rgba(10,11,8,.82)}
+#bigmap canvas{image-rendering:pixelated;border:1px solid var(--line);max-width:96vw;max-height:88vh}
+.bmhint{font-family:var(--f-disp);font-weight:700;letter-spacing:.18em;color:var(--dim);font-size:14px;text-align:center}
+@media (max-width:520px){ #minimap{width:120px;height:120px} }

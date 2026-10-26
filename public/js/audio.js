@@ -76,6 +76,9 @@ const SFX={
   flutter(pan,vol){ const t0=AC.currentTime, o=outNode(pan,vol); for(let i=0;i<14;i++){ const t=t0+i*rand(.025,.05), g=AC.createGain(); g.connect(o); env(g,t,0.003,0.09,0.05); nz(t,0.07,'bandpass',rand(500,900),1.5,g);} },
   squeak(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.005,0.03,0.08); osc(t,0.09,'square',rand(2800,3400),rand(3600,4200),g); },
   tink(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.001,0.05,0.09); osc(t,0.1,'sine',rand(3800,5200),rand(3400,4600),g); },
+  creak(pan,vol){ const t0=AC.currentTime, o=outNode(pan,vol), bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=6; bp.connect(o);
+    const g=AC.createGain(); g.connect(bp); env(g,t0,0.03,0.12,0.35); const s=AC.createOscillator(); s.type='sawtooth'; s.frequency.setValueAtTime(rand(180,260),t0); s.frequency.linearRampToValueAtTime(rand(120,170),t0+0.35); s.connect(g); s.start(t0); s.stop(t0+0.42);
+    const g2=AC.createGain(); g2.connect(o); env(g2,t0+0.3,0.005,0.12,0.12); nz(t0+0.3,0.15,'lowpass',300,1,g2); },
   crackle(pan,vol){ const t=AC.currentTime, g=outNode(pan,vol); env(g,t,0.001,0.06,0.03); nz(t,0.05,'highpass',rand(1500,4000),1,g); },
 };
 const AMB_DAY=[['birds',5],['crow',3],['dog',2],['clang',2],['drip',2],['alarm',1],['glass',1],['farShot',0.6],['siren',0.3]];

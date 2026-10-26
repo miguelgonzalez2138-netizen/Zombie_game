@@ -90,7 +90,7 @@ const squad=SQUAD_DEF.map((d,i)=>{
   const light=new THREE.SpotLight(0xfff0d0,i===0?1.7:0.9,i===0?32:22,0.42,0.6,1.4);
   const tgt=new THREE.Object3D(); scene.add(tgt); light.target=tgt; light.layers.enableAll(); scene.add(light);
   return Object.assign({},d,{i,x:d.post.x,z:d.post.z,ang:Math.PI,hp:100,mag:30,res:120,reloadT:0,fireCD:0,meleeCD:0,stress:0,alive:true,
-    mesh,light,tgt,lightOn:true,panic:0,status:'HOLD',near:0,sight:7,vx:0,vz:0,walk:0,recoil:0,shoveT:0,boots:0,step:0,foot:1});
+    mesh,light,tgt,lightOn:true,panic:0,status:'HOLD',near:0,sight:7,vx:0,vz:0,walk:0,recoil:0,shoveT:0,boots:0,step:0,foot:1,L:0,trav:null,y:0,field:null,goalKey:''});
 });
 let me=0;
 const ring=new THREE.Mesh(new THREE.RingGeometry(0.55,0.68,16),new THREE.MeshBasicMaterial({color:0xcdb88e,fog:false,transparent:true,opacity:.7}));
@@ -104,6 +104,9 @@ const zspd=new Float32Array(MAXZ), zph=new Float32Array(MAXZ), zox=new Float32Ar
 const zcd=new Float32Array(MAXZ), zmoan=new Float32Array(MAXZ), zwt=new Float32Array(MAXZ);
 const zst=new Uint8Array(MAXZ);   // 0 dead 1 drift 2 hunt 3 chase 4 wander
 const ztgt=new Int8Array(MAXZ);
+// levels and stairs: which floor each zombie is on, its height, and any stair or window climb in progress
+const zl=new Int8Array(MAXZ), zyv=new Float32Array(MAXZ), ztr=new Array(MAXZ).fill(null);
+const zLosT=new Float32Array(MAXZ), zDirect=new Uint8Array(MAXZ), zSees=new Int8Array(MAXZ).fill(-1);
 const zvar=new Uint8Array(MAXZ);           // gait: 0 shambler 1 big 2 limper 3 crawler
 const zhunch=new Float32Array(MAXZ), zarmL=new Uint8Array(MAXZ), zarmR=new Uint8Array(MAXZ), ztilt=new Float32Array(MAXZ), zsc=new Float32Array(MAXZ), zfl=new Float32Array(MAXZ);
 const zout=new Uint8Array(MAXZ);   // outfit: 0 civilian 1 cop 2 soldier 3 hospital gown 4 hi-vis vest
@@ -196,7 +199,7 @@ function poseZ(i,x,z,v,dt){
   const ph=zph[i], var_=zvar[i], h=zhunch[i];
   const R=zr;
   const legY=lookZ(i);
-  R.root.position.set(x,0,z); R.root.rotation.set(0,zang[i],Math.sin(ph*0.5)*0.06); R.root.scale.setScalar(zsc[i]);
+  R.root.position.set(x,zyv[i],z); R.root.rotation.set(0,zang[i],Math.sin(ph*0.5)*0.06); R.root.scale.setScalar(zsc[i]);
   const stride=Math.min(1,v/1.2), fl=zfl[i];
   const chasing=zst[i]===3;
   if(var_===3){
@@ -223,7 +226,7 @@ function poseZ(i,x,z,v,dt){
 function poseDying(i,u){
   const R=zr, e=u*u, var_=zvar[i];
   const legY=lookZ(i);
-  R.root.position.set(zx[i]+zdx[i]*0.8*e,0.12*e,zz[i]+zdz[i]*0.8*e);
+  R.root.position.set(zx[i]+zdx[i]*0.8*e,zyv[i]+0.12*e,zz[i]+zdz[i]*0.8*e);
   R.root.scale.setScalar(zsc[i]);
   if(var_===3){
     R.root.rotation.set(0,zang[i],0); R.hip.position.set(0,0.2-0.08*e,0);
@@ -242,7 +245,7 @@ function poseDying(i,u){
 }
 
 /* ---------- blood ---------- */
-const MAXD=700, dX=new Float32Array(MAXD), dY=new Float32Array(MAXD), dZ=new Float32Array(MAXD), dVX=new Float32Array(MAXD), dVY=new Float32Array(MAXD), dVZ=new Float32Array(MAXD), dL=new Uint8Array(MAXD);
+const MAXD=700, dFl=new Float32Array(MAXD), dX=new Float32Array(MAXD), dY=new Float32Array(MAXD), dZ=new Float32Array(MAXD), dVX=new Float32Array(MAXD), dVY=new Float32Array(MAXD), dVZ=new Float32Array(MAXD), dL=new Uint8Array(MAXD);
 let dIdx=0;
 const imDrop=new THREE.InstancedMesh(new THREE.BoxGeometry(0.07,0.07,0.07),new THREE.MeshBasicMaterial({color:0x8e120c}),MAXD);
 imDrop.frustumCulled=false; imDrop.instanceMatrix.setUsage(THREE.DynamicDrawUsage); onCharLayer(imDrop); scene.add(imDrop);
@@ -253,15 +256,15 @@ const imSplat=new THREE.InstancedMesh(new THREE.CircleGeometry(0.5,8).rotateX(-M
 imSplat.frustumCulled=false; imSplat.receiveShadow=true; onCharLayer(imSplat); scene.add(imSplat);
 for(let i=0;i<MAXS;i++) imSplat.setMatrixAt(i,zeroM);
 const pools=[]; // recent big puddles, for bloody boots
-function splat(x,z,sx,sz,ang){
-  dummy.position.set(x,0.05,z); dummy.rotation.set(0,ang===undefined?Math.random()*6.28:ang,0); dummy.scale.set(sx,1,sz); dummy.updateMatrix();
+function splat(x,z,sx,sz,ang,y){
+  dummy.position.set(x,(y||0)+0.05+(y?0.04:0),z); dummy.rotation.set(0,ang===undefined?Math.random()*6.28:ang,0); dummy.scale.set(sx,1,sz); dummy.updateMatrix();
   imSplat.setMatrixAt(sIdx,dummy.matrix); sIdx=(sIdx+1)%MAXS; imSplat.instanceMatrix.needsUpdate=true;
 }
-function pool(x,z,r){ splat(x,z,r*rand(.8,1.2),r*rand(.8,1.2)); pools.push({x,z,r:r*0.5}); if(pools.length>80) pools.shift(); }
-function bleed(x,y,z,dx,dz,n,force){
+function pool(x,z,r,y){ splat(x,z,r*rand(.8,1.2),r*rand(.8,1.2),undefined,y); pools.push({x,z,r:r*0.5,y:y||0}); if(pools.length>80) pools.shift(); }
+function bleed(x,y,z,dx,dz,n,force,fy){
   for(let k=0;k<n;k++){
     dIdx=(dIdx+1)%MAXD; const j=dIdx;
-    dX[j]=x+rand(-.1,.1); dY[j]=y+rand(-.15,.15); dZ[j]=z+rand(-.1,.1);
+    dFl[j]=fy||0; dX[j]=x+rand(-.1,.1); dY[j]=y+(fy||0)+rand(-.15,.15); dZ[j]=z+rand(-.1,.1);
     const f=force*rand(.4,1.2);
     dVX[j]=dx*f+rand(-1.2,1.2); dVZ[j]=dz*f+rand(-1.2,1.2); dVY[j]=rand(0.5,3.2); dL[j]=1;
   }
@@ -270,7 +273,7 @@ function updateBlood(dt){
   let any=false;
   for(let j=0;j<MAXD;j++){ if(!dL[j]) continue; any=true;
     dVY[j]-=14*dt; dX[j]+=dVX[j]*dt; dY[j]+=dVY[j]*dt; dZ[j]+=dVZ[j]*dt;
-    if(dY[j]<=0.05){ dL[j]=0; imDrop.setMatrixAt(j,zeroM); const r=rand(.12,.32); splat(dX[j],dZ[j],r,r*rand(1,2.2),Math.atan2(dVX[j],dVZ[j])); continue; }
+    if(dY[j]<=dFl[j]+0.05){ dL[j]=0; imDrop.setMatrixAt(j,zeroM); const r=rand(.12,.32); splat(dX[j],dZ[j],r,r*rand(1,2.2),Math.atan2(dVX[j],dVZ[j]),dFl[j]); continue; }
     dummy.position.set(dX[j],dY[j],dZ[j]); dummy.rotation.set(0,0,0); dummy.scale.set(1,1,1); dummy.updateMatrix(); imDrop.setMatrixAt(j,dummy.matrix);
   }
   if(any) imDrop.instanceMatrix.needsUpdate=true;
@@ -295,7 +298,7 @@ function updateGibs(dt){
     g.t+=dt; g.vy-=14*dt; g.x+=g.vx*dt; g.y+=g.vy*dt; g.z+=g.vz*dt; g.rx+=g.wx*dt; g.ry+=g.wy*dt;
     if(Math.random()<dt*20) bleed(g.x,g.y,g.z,0,0,1,0.3);
     if(g.y<=0.08){ g.y=0.08; g.vy*=-0.3; g.vx*=0.55; g.vz*=0.55; g.wx*=0.5; g.wy*=0.5; if(Math.abs(g.vy)<0.6){ g.rest=true; pool(g.x,g.z,0.6); g.rx=Math.PI/2; } }
-    P.x=g.x; P.z=g.z; clampWalk(); g.x=P.x; g.z=P.z;
+    if(!cellWalk(0,Math.floor(g.x),Math.floor(g.z))&&g.y<2.5){ g.x-=g.vx*dt; g.z-=g.vz*dt; g.vx*=-0.4; g.vz*=-0.4; }
     g.m.position.set(g.x,g.y,g.z); g.m.rotation.set(g.rx,g.ry,0);
   }
 }

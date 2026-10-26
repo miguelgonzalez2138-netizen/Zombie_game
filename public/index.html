@@ -19,8 +19,10 @@
     <div id="night">DAY 1</div>
     <div id="phase">Fog thin</div>
     <div id="horde">Horde: not seen</div>
+    <div id="where">Wolcott Ave</div>
     <div class="meter"><span>NOISE</span><i><b id="noiseBar"></b></i></div>
   </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
   <div id="radio"></div>
   <div id="banner"><div id="bannerT"></div><div id="bannerS"></div></div>
   <div id="bottom">
@@ -32,7 +34,7 @@
     <kbd>WASD</kbd> move &nbsp;<kbd>Mouse</kbd> aim &nbsp;<kbd>Click</kbd> fire &nbsp;<kbd>R</kbd> reload<br>
     <kbd>V</kbd>/<kbd>RMB</kbd> shove &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
     <kbd>1</kbd> hold &nbsp;<kbd>2</kbd> follow &nbsp;<kbd>3</kbd> fall back &nbsp;<kbd>4</kbd> fire / quiet<br>
-    <kbd>Q</kbd> swap &nbsp;<kbd>E</kbd> repair (loud) &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>H</kbd> hide
+    <kbd>Q</kbd> swap &nbsp;<kbd>E</kbd> door / repair &nbsp;<kbd>M</kbd> map &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>H</kbd> hide
   </div>
 </div>
 
@@ -69,6 +71,8 @@
   </div>
 </div>
 
+<div id="bigmap" hidden><canvas id="bigmapC"></canvas><div class="bmhint">PILSEN · M OR ESC TO CLOSE</div></div>
+
 <div class="ov" id="over" hidden>
   <div class="box">
     <h1 id="overT">LINE LOST</h1>
@@ -79,6 +83,8 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="js/core.js"></script>
+<script src="js/map.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/world.js"></script>
 <script src="js/actors.js"></script>
 <script src="js/atmosphere.js"></script>

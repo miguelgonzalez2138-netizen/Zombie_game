@@ -173,3 +173,86 @@ function boxUV(sx,sy,sz){
 function addMesh(geo,mat,x,y,z,cast=true,recv=true){
   const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=cast; m.receiveShadow=recv; scene.add(m); return m;
 }
+
+/* ---------- merged geometry builder ---------- */
+// Boxes and quads with vertex colors, world-space UVs and a building id per vertex (for cutaways).
+class GB{
+  constructor(us=0.5){ this.p=[]; this.n=[]; this.u=[]; this.c=[]; this.b=[]; this.i=[]; this.v=0; this.us=us; }
+  // four corners counter-clockwise seen from the front; uv given per corner
+  quad(a,b,c,d,nx,ny,nz,col,bid,uv){
+    const v=this.v;
+    for(const q of [a,b,c,d]){ this.p.push(q[0],q[1],q[2]); this.n.push(nx,ny,nz); this.c.push(col[0],col[1],col[2]); this.b.push(bid); }
+    if(uv) this.u.push(...uv); else this.u.push(0,0,1,0,1,1,0,1);
+    this.i.push(v,v+1,v+2,v,v+2,v+3); this.v+=4;
+  }
+  // axis-aligned box; faces: 'px','nx','py','ny','pz','nz' may be skipped or recolored via opt
+  box(x0,y0,z0,x1,y1,z1,col,bid,opt){
+    const s=this.us, o=opt||{}, sk=o.skip||'', fc=o.faces||{};
+    const C=f=>fc[f]||col;
+    if(!sk.includes('py')) this.quad([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],0,1,0,C('py'),bid,[x0*s,z1*s,x1*s,z1*s,x1*s,z0*s,x0*s,z0*s]);
+    if(sk.includes('ny')===false&&o.bottom) this.quad([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],0,-1,0,C('ny'),bid);
+    if(!sk.includes('pz')) this.quad([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],0,0,1,C('pz'),bid,[x0*s,y0*s,x1*s,y0*s,x1*s,y1*s,x0*s,y1*s]);
+    if(!sk.includes('nz')) this.quad([x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],0,0,-1,C('nz'),bid,[x1*s,y0*s,x0*s,y0*s,x0*s,y1*s,x1*s,y1*s]);
+    if(!sk.includes('px')) this.quad([x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],1,0,0,C('px'),bid,[z1*s,y0*s,z0*s,y0*s,z0*s,y1*s,z1*s,y1*s]);
+    if(!sk.includes('nx')) this.quad([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],-1,0,0,C('nx'),bid,[z0*s,y0*s,z1*s,y0*s,z1*s,y1*s,z0*s,y1*s]);
+  }
+  get empty(){ return this.v===0; }
+  build(){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(this.p,3));
+    g.setAttribute('normal',new THREE.Float32BufferAttribute(this.n,3));
+    g.setAttribute('uv',new THREE.Float32BufferAttribute(this.u,2));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(this.c,3));
+    g.setAttribute('bid',new THREE.Float32BufferAttribute(this.b,1));
+    g.setIndex(this.i); g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+}
+
+/* ---------- cutaways ---------- */
+// Every building vertex carries its building id. A 1-pixel-tall texture holds a cut height per building;
+// fragments above it are discarded, and back faces exposed by the cut render as dark wall tops.
+const CUT_N=1024, CUT_NONE=1023, CUT_MAX=64;
+const cutData=new Uint8Array(CUT_N*4).fill(255);
+const cutTex=new THREE.DataTexture(cutData,CUT_N,1,THREE.RGBAFormat);
+cutTex.magFilter=THREE.NearestFilter; cutTex.minFilter=THREE.NearestFilter; cutTex.needsUpdate=true;
+function cutPatch(m){
+  m.onBeforeCompile=sh=>{
+    sh.uniforms.tCut={value:cutTex};
+    sh.vertexShader='attribute float bid;\nvarying float vBid;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvBid=bid;');
+    sh.fragmentShader='uniform sampler2D tCut;\nvarying float vBid;\n'+sh.fragmentShader
+      .replace('void main() {','void main() {\n  float cutY=texture2D(tCut,vec2((vBid+0.5)/'+CUT_N+'.0,0.5)).r*'+CUT_MAX+'.0;\n  if(cutY<63.0&&vFogWorld.y>cutY) discard;')
+      .replace('#include <dithering_fragment>','#include <dithering_fragment>\n  if(!gl_FrontFacing) gl_FragColor.rgb=vec3(0.045,0.045,0.05);');
+  };
+  m.side=THREE.DoubleSide; m.shadowSide=THREE.FrontSide;
+  return m;
+}
+function setCut(b,h){ const v=h>=CUT_MAX?255:Math.max(0,Math.min(254,Math.round(h/CUT_MAX*255))); if(cutData[b*4]!==v){ cutData[b*4]=v; cutTex.needsUpdate=true; } }
+function getCut(b){ const v=cutData[b*4]; return v===255?999:v/255*CUT_MAX; }
+
+/* ---------- static dressing gets merged by material ---------- */
+const statics=[];
+const MC=new Map(); const pc=hex=>{ if(!MC.has(hex)) MC.set(hex,phong({color:hex})); return MC.get(hex); };
+function addStatic(geo,mat,x,y,z,cast=true){ const o=new THREE.Object3D(); o.position.set(x,y,z); statics.push({geo,mat,o,cast}); return o; }
+function addStaticM(geo,mat,m,cast=true){ statics.push({geo,mat,m:m.clone(),cast}); }
+function staticMesh(mesh){ statics.push({geo:mesh.geometry,mat:mesh.material,o:mesh,cast:mesh.castShadow!==false}); return mesh; }
+function flushStatics(){
+  const groups=new Map();
+  for(const s of statics){ const key=s.mat.uuid+(s.cast?'c':'n'); if(!groups.has(key)) groups.set(key,{mat:s.mat,cast:s.cast,list:[]}); groups.get(key).list.push(s); }
+  for(const g of groups.values()){
+    const P=[],N=[],U=[]; let n=0;
+    for(const s of g.list){
+      const geo=(s.geo.index?s.geo.toNonIndexed():s.geo.clone());
+      let m=s.m; if(!m){ s.o.updateMatrix(); m=s.o.matrix; }
+      geo.applyMatrix4(m);
+      P.push(geo.attributes.position.array); N.push(geo.attributes.normal.array);
+      U.push(geo.attributes.uv?geo.attributes.uv.array:new Float32Array(geo.attributes.position.count*2)); n+=geo.attributes.position.count;
+    }
+    const cat=(arrs,k)=>{ const out=new Float32Array(n*k); let o=0; for(const a of arrs){ out.set(a,o); o+=a.length; } return out; };
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(cat(P,3),3)); geo.setAttribute('normal',new THREE.BufferAttribute(cat(N,3),3)); geo.setAttribute('uv',new THREE.BufferAttribute(cat(U,2),2));
+    geo.computeBoundingSphere();
+    const mesh=new THREE.Mesh(geo,g.mat); mesh.castShadow=g.cast; mesh.receiveShadow=true; scene.add(mesh);
+  }
+  statics.length=0;
+}
