@@ -128,7 +128,8 @@ function updateAmbience(dt,p){
   if(amb.next<=0){
     amb.next=rand(night?5:4,night?14:11);
     const n=pickAmb(night?AMB_NIGHT:AMB_DAY);
-    if(n==='rotor'&&Math.random()<.5){} else SFX[n](rand(-0.9,0.9));
+    const pan=rand(-0.9,0.9);
+    if(n==='rotor'&&Math.random()<.5){} else { SFX[n](pan); const CAP={dog:'dogs barking',alarm:'car alarm',farShot:'distant gunfire',glass:'glass breaking far off',siren:'a siren, far off',rotor:'rotors?',farMoans:'moaning in the fog',clang:'metal clanging'}; if(CAP[n]&&typeof caption==='function') caption(CAP[n]+(pan<-0.3?' · west':pan>0.3?' · east':'')); }
   }
 }
 
@@ -137,4 +138,97 @@ function sThud(vol=0.4){
   const o=AC.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(50,t+0.12);
   const g=AC.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.16);
+}
+
+/* ---------- mix: master, music and effects volumes (set from the settings menu) ---------- */
+const VOL={master:0.8,music:0.6,sfx:1};
+function applyVolumes(){ if(!AC) return; master.gain.setTargetAtTime(0.55*VOL.master*VOL.sfx,AC.currentTime,0.1); if(MUS.g) MUS.g.gain.setTargetAtTime(0.9*VOL.music*VOL.master,AC.currentTime,0.3); }
+
+/* ---------- where a sound comes from: pan, falloff, and walls in the way ---------- */
+function sndAt(x,z,L,range){
+  const p=squad[me], dx=x-p.x, dz=z-p.z, d=Math.hypot(dx,dz);
+  const occ=(L!==undefined&&(L!==p.L||!los(p.L,p.x,p.z,x,z)))?1:0;
+  return {pan:clamp(dx/22,-1,1),vol:Math.max(0,1-d/(range||45))/(1+d*0.04),occ,d};
+}
+// an output that pans and, if a wall is in the way, muffles
+function outAt(S,vol){
+  const o=outNode(S.pan,vol*S.vol);
+  if(!S.occ) return o;
+  const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=650; f.connect(o); return f;
+}
+
+/* ---------- footsteps: what you're walking on ---------- */
+const STEP_SND={
+  [SURF.ASPHALT]:['bandpass',1300,1.2,0.05,0.045],[SURF.CONCRETE]:['bandpass',1600,1.4,0.05,0.045],[SURF.ALLEY]:['bandpass',1100,1,0.06,0.05],
+  [SURF.GRASS]:['lowpass',650,0.7,0.08,0.035],[SURF.DIRT]:['lowpass',500,0.7,0.07,0.04],[SURF.GRAVEL]:['bandpass',2600,0.8,0.09,0.05],
+  [SURF.WOOD]:['lowpass',420,1.2,0.06,0.06],[SURF.TILE]:['bandpass',3000,2,0.03,0.04],[SURF.CARPET]:['lowpass',300,0.7,0.05,0.02],
+  [SURF.METAL]:['bandpass',900,6,0.08,0.05],[SURF.ROOF]:['bandpass',1200,1.2,0.05,0.04],
+};
+function stepSound(s,vol){
+  if(!AC) return;
+  const cx=Math.floor(s.x), cz=Math.floor(s.z); if(!inMap(cx,cz)) return;
+  let surf=MAP.surf[Math.min(s.L,NL-1)][CI(cx,cz)];
+  const snowy=WX.snow>0.35&&!indoors(s.L,s.x,s.z);
+  const P=snowy?['lowpass',900,0.6,0.1,0.05]:(STEP_SND[surf]||STEP_SND[SURF.CONCRETE]);
+  const S=sndAt(s.x,s.z,s.L,25); if(S.vol<=0.01) return;
+  const t=AC.currentTime, g=outAt(S,vol*P[4]*(s.sneak?0.35:s.sprint?1.5:1));
+  const gg=AC.createGain(); gg.connect(g); env(gg,t,0.002,1,P[3]); nz(t,P[3]+0.03,P[0],P[1]*rand(.85,1.15),P[2],gg);
+  if(surf===SURF.WOOD&&!snowy){ const g2=AC.createGain(); g2.connect(g); env(g2,t,0.002,0.6,0.07); osc(t,0.08,'sine',rand(95,130),70,g2); }
+}
+
+/* ---------- the dead: more than one kind of noise ---------- */
+function zSound(i,kind){
+  if(!AC) return;
+  const S=sndAt(zx[i],zz[i],zl[i],40); if(S.vol<=0.01) return;
+  const t=AC.currentTime, o=outAt(S,1);
+  const pitch=(zbody[i]===1?0.75:zbody[i]===2?1.2:1)*rand(.85,1.15);
+  if(kind==='moan'){ const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.value=rand(300,700); f.Q.value=2; f.connect(o);
+    const g=AC.createGain(); g.connect(f); env(g,t,0.25,0.22,1.3); osc(t,1.6,'sawtooth',rand(80,115)*pitch,rand(55,75)*pitch,g);
+    const g2=AC.createGain(); g2.connect(o); env(g2,t+0.1,0.2,0.04,1); nz(t+0.1,1.2,'bandpass',rand(500,900),3,g2); }
+  else if(kind==='shriek'){ const g=AC.createGain(); g.connect(o); env(g,t,0.05,0.18,0.6); osc(t,0.7,'sawtooth',rand(260,340)*pitch,rand(150,190)*pitch,g);
+    const g2=AC.createGain(); g2.connect(o); env(g2,t,0.03,0.08,0.5); nz(t,0.6,'bandpass',1800,4,g2); }
+  else if(kind==='hurt'){ const g=AC.createGain(); g.connect(o); env(g,t,0.01,0.12,0.25); osc(t,0.3,'square',rand(140,190)*pitch,90*pitch,g); }
+  else if(kind==='gurgle'){ for(let k=0;k<5;k++){ const g=AC.createGain(); g.connect(o); env(g,t+k*0.07,0.005,0.05,0.06); osc(t+k*0.07,0.07,'sine',rand(180,320)*pitch,rand(90,140),g); } }
+  else if(kind==='feed'){ const g=AC.createGain(); g.connect(o); env(g,t,0.01,0.09,0.18); nz(t,0.2,'lowpass',700,1,g); const g2=AC.createGain(); g2.connect(o); env(g2,t+0.08,0.01,0.05,0.12); osc(t+0.08,0.14,'sine',rand(120,200),70,g2); }
+}
+
+/* ---------- the radio, and the noise in your own head ---------- */
+SFX.static=function(vol){ const t=AC.currentTime, g=outNode(0,vol); env(g,t,0.01,1,0.35); nz(t,0.4,'bandpass',rand(1800,2600),0.8,g); const g2=outNode(0,vol*0.5); env(g2,t+0.3,0.005,1,0.05); nz(t+0.3,0.06,'highpass',3000,1,g2); };
+let ringT=0;
+function stressAudio(dt,p){
+  if(!AC) return;
+  if(!amb.ring){ const o=AC.createOscillator(); o.type='sine'; o.frequency.value=5600; const g=AC.createGain(); g.gain.value=0; o.connect(g); g.connect(master); o.start(); amb.ring={g}; }
+  const k=p.alive?clamp((p.stress-60)/40,0,1):0;
+  amb.ring.g.gain.setTargetAtTime(k*0.006,AC.currentTime,0.6);
+}
+
+/* ---------- music: dark ambient drones that lean in when it gets bad ---------- */
+const MUS={g:null,voices:[],pulse:null,cluster:null,chord:0,t:0,threat:0};
+const CHORDS=[[73.42,110,174.6],[65.41,98,155.6],[58.27,87.31,138.6],[69.3,103.8,164.8]];
+function musicInit(){
+  if(!AC||MUS.g) return;
+  MUS.g=AC.createGain(); MUS.g.gain.value=0.9*VOL.music*VOL.master; MUS.g.connect(AC.destination);
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700; lp.Q.value=0.5; lp.connect(MUS.g); MUS.lp=lp;
+  const lfo=AC.createOscillator(); lfo.frequency.value=0.05; const lg=AC.createGain(); lg.gain.value=260; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  for(let k=0;k<3;k++) for(const det of [-4,5]){
+    const o=AC.createOscillator(); o.type=k===0?'sine':'triangle'; o.frequency.value=CHORDS[0][k]; o.detune.value=det;
+    const g=AC.createGain(); g.gain.value=k===0?0.022:0.012; o.connect(g); g.connect(lp); o.start(); MUS.voices.push({o,k}); }
+  // threat: a slow sub pulse and a faint dissonant cluster up high
+  const sub=AC.createOscillator(); sub.type='sine'; sub.frequency.value=41.2; const sg=AC.createGain(); sg.gain.value=0;
+  const am=AC.createOscillator(); am.frequency.value=0.9; const amg=AC.createGain(); amg.gain.value=0.5; am.connect(amg); amg.connect(sg.gain); am.start();
+  sub.connect(sg); sg.connect(MUS.g); sub.start(); MUS.pulse=sg;
+  const cg=AC.createGain(); cg.gain.value=0; cg.connect(MUS.g); MUS.cluster=cg;
+  for(const f of [622,659,698]){ const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f; const g=AC.createGain(); g.gain.value=0.004; o.connect(g); g.connect(cg); o.start(); }
+}
+function updateMusic(dt){
+  if(!AC) return; if(!MUS.g) musicInit();
+  MUS.t-=dt; if(MUS.t<=0){ MUS.t=rand(18,32); MUS.chord=(MUS.chord+1+(Math.random()*2|0))%CHORDS.length;
+    for(const v of MUS.voices) v.o.frequency.setTargetAtTime(CHORDS[MUS.chord][v.k],AC.currentTime,3); }
+  let chasing=0; for(let i=0;i<MAXZ;i++) if(zst[i]===3) chasing++;
+  const night=G.phase==='night'||G.phase==='dusk';
+  const want=clamp(chasing/18,0,1)*0.8+(night?0.2:0);
+  MUS.threat=lerp(MUS.threat,want,Math.min(1,dt*0.5));
+  MUS.pulse.gain.setTargetAtTime(MUS.threat*0.05,AC.currentTime,1);
+  MUS.cluster.gain.setTargetAtTime(Math.max(0,MUS.threat-0.4)*1.2,AC.currentTime,1.5);
+  MUS.lp.frequency.setTargetAtTime(500+MUS.threat*700,AC.currentTime,2);
 }

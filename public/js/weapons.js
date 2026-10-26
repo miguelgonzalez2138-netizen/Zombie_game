@@ -250,7 +250,8 @@ function shove(s){
     if(zl[j]!==s.L||zst[j]===5) return;
     const dx=zx[j]-s.x, dz=zz[j]-s.z, d=Math.hypot(dx,dz); if(d>(bay?2.2:1.9)||d<1e-3) return;
     if((dx*fx_+dz*fz_)/d<0.25) return;
-    pushZ(j,dx/d*(bay?0.6:1.3),dz/d*(bay?0.6:1.3)); zhp[j]-=(bay?72:48)*s.melee; hit=true; zdx[j]=dx/d; zdz[j]=dz/d; zstun[j]=Math.max(zstun[j],bay?0.3:0.6); zfl[j]=1;
+    if(zgrab[j]) releaseGrab(j);
+    pushZ(j,dx/d*(bay?0.6:1.3),dz/d*(bay?0.6:1.3)); zhp[j]-=(bay?72:48)*s.melee; if(Math.random()<0.25) knockDown(j,0.9); hit=true; zdx[j]=dx/d; zdz[j]=dz/d; zstun[j]=Math.max(zstun[j],bay?0.3:0.6); zfl[j]=1;
     bleed(zx[j],1.2,zz[j],dx/d,dz/d,bay?9:4,1.5,zyv[j]);
     if(zhp[j]<=0) killZ(j,true);
   });
@@ -262,7 +263,7 @@ function swing(s){
   const W=WPN[s.wpn]; if(!W.melee||s.meleeCD>0||s.actT>0||s.drawT>0) return;
   const sj=frontZombie(s,1.6,0.5,j=>unaware(j,s));
   if(sj>=0&&s.i===me){ stealthKill(s,sj); s.meleeCD=W.cd; return; }
-  s.meleeCD=W.cd; s.swingT=0.32; s.stam=Math.max(0,s.stam-6);
+  s.meleeCD=W.cd; s.swingT=0.32; s.stam=Math.max(0,s.stam-6); swingArc(s,W.reach,W.arc,!W.edge);
   const fx_=Math.sin(s.ang), fz_=Math.cos(s.ang), cosA=Math.cos(W.arc), list=[];
   eachNear(s.x,s.z,W.reach+0.5,j=>{ if(zl[j]!==s.L||zst[j]===5) return;
     const dx=zx[j]-s.x, dz=zz[j]-s.z, d=Math.hypot(dx,dz); if(d>W.reach||d<1e-3) return; if((dx*fx_+dz*fz_)/d<cosA) return; list.push([d,j]); });
@@ -357,6 +358,7 @@ function footsteps(s,dt){
   if(s.trav||s.vault) return;
   const sp=Math.hypot(s.vx,s.vz); if(sp<0.8) return;
   s.stepD+=sp*dt; if(s.stepD<0.75) return; s.stepD=0;
+  stepSound(s,s.i===me?1:0.6);
   if(s.sneak) return;
   const r=(s.sprint?9.5:sp>4.2?5:3)*(hasPerk(s,'light')?0.5:1);
   makeNoise(s.x,s.z,r,s.L);
@@ -467,7 +469,7 @@ function explode(x,y,z,L){
     if(!inMap(cx,cz)) continue; const c=CI(cx,cz);
     for(const e of [MAP.eE[L][c],MAP.eS[L][c]]){ if(!e) continue; const m=edgeMid(e), d=Math.hypot(m.x-x,m.z-z);
       if(ED.t[e]===ET.WIN&&d<7) breakGlass(e); else if(d<3.2) damageEdge(e,320*(1-d/3.2)); } }
-  if(AC) SFX.boom(clamp((x-ps.x)/25,-1,1),1/(1+dp*0.05));
+  if(AC) SFX.boom(clamp((x-ps.x)/25,-1,1),1/(1+dp*0.05)); caption('explosion',x,z);
   G.shake=Math.max(G.shake,1.1/(1+dp*0.07));
   if(dp<12){ G.kickX+=(ps.x-x)/(dp||1)*0.6; G.kickZ+=(ps.z-z)/(dp||1)*0.6; }
   makeNoise(x,z,85,L);

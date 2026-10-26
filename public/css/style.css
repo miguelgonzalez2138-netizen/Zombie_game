@@ -226,3 +226,31 @@ table.board tr.hl td{color:var(--tan)}
 #overS p{line-height:1.6}
 #pause{z-index:40} #pause .col button,#start .col button{font-size:16px;justify-self:stretch} #over{z-index:40}
 #over,#pause{background:rgba(12,11,10,.9)}
+
+/* settings */
+#settings{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,11,8,.8);z-index:50;font-family:var(--f-mono)}
+#settings[hidden]{display:none}
+.setbox{background:rgba(24,25,19,.98);border-top:3px solid var(--tan);padding:16px 20px 12px;width:min(860px,95vw);max-height:94vh;overflow:auto;display:grid;gap:8px}
+.setbox .ttl{font-family:var(--f-disp);font-weight:800;font-size:22px;letter-spacing:.12em;color:var(--ink)}
+.setbox .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.setbox .sub{font-family:var(--f-disp);font-weight:700;font-size:13px;letter-spacing:.16em;color:var(--tan);margin:8px 0 4px}
+.sr{display:grid;grid-template-columns:120px 1fr 70px;gap:8px;align-items:center;font-size:11px;color:var(--ink);margin:3px 0}
+.sr em{font-style:normal;color:var(--dim);font-size:10px}
+.sr button,.kb button,.setbox .rst,.setbox .btns button{font-family:var(--f-mono);font-size:10px;letter-spacing:.08em;color:var(--ink);background:rgba(230,220,203,.06);border:1px solid var(--line);padding:4px 8px;cursor:pointer;justify-self:start}
+.sr button.on{border-color:var(--tan);color:var(--tan)}
+.sr input[type=range]{accent-color:#c9bc80}
+.binds{display:grid;gap:2px;max-height:52vh;overflow:auto;padding-right:6px}
+.kb{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;font-size:10px;color:var(--dim)}
+.kb button{justify-self:stretch} .kb button.wait{border-color:var(--warn);color:var(--warn)}
+.setbox .rst{margin-top:6px} .setbox .hint{color:var(--dim);font-size:10px} .setbox .btns button{font-size:12px;padding:7px 16px;border-color:var(--tan);color:var(--tan)}
+/* captions */
+#captions{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:grid;gap:3px;justify-items:center;pointer-events:none;z-index:6}
+#captions div{font-family:var(--f-mono);font-size:12px;color:#efe8cc;background:rgba(10,11,8,.7);padding:2px 8px;transition:opacity .8s}
+/* dev */
+#dev{position:fixed;right:14px;top:210px;z-index:45;background:rgba(24,25,19,.95);border:1px solid var(--warn);padding:8px;display:grid;gap:4px;width:190px;font-family:var(--f-mono)}
+#dev[hidden]{display:none}
+#dev .ttl{font-size:11px;letter-spacing:.2em;color:var(--warn)}
+#dev button{font-family:var(--f-mono);font-size:10px;color:var(--ink);background:rgba(230,220,203,.06);border:1px solid var(--line);padding:3px 6px;cursor:pointer;text-align:left}
+#dev .dv{font-size:9px;color:var(--dim)}
+/* text size */
+#hud,#inv,#workshop,#squadscr,#plan,#wheel,#buildbar{zoom:var(--ui,1)}

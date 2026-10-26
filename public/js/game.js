@@ -14,6 +14,7 @@ function bannerShow(t,s,dur=3.2){
 }
 const radioEl=document.getElementById('radio');
 function radio(msg){
+  if(AC&&G.started) SFX.static(0.05);
   const d=document.createElement('div'); d.textContent=msg; radioEl.appendChild(d);
   while(radioEl.children.length>4) radioEl.firstChild.remove();
   setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),1300);},9000);
@@ -48,6 +49,7 @@ function startDay(){
   dayEvent();
   // a few dead wander the neighborhood by day, more as the days go on
   for(let k=0;k<26+G.night*2;k++){ const p=randomStreetSpot(40); if(p) spawnZ(p.x,p.z,4,0,0); }
+  spawnFeeders();
   saveGame(true);
 }
 function startDusk(){
@@ -91,7 +93,7 @@ function spawnZ(x,z,state,ox,oz,L){
     zx[i]=x; zz[i]=z; zvx[i]=0; zvz[i]=0; zhp[i]=rand(80,120); zst[i]=state; zox[i]=ox; zoz[i]=oz;
     zspd[i]=rand(.8,1.2); zph[i]=Math.random()*10; zcd[i]=0; zmoan[i]=0; zang[i]=-Math.PI/2; ztgt[i]=-1;
     ztx[i]=x; ztz[i]=z; zwt[i]=0; zfl[i]=0; zgib[i]=0; zdrip[i]=0; dressZ(i);
-    zl[i]=L||0; zyv[i]=(L||0)*LH; ztr[i]=null; zLosT[i]=Math.random()*0.3; zDirect[i]=0; zSees[i]=-1; zburn[i]=0; zstun[i]=0; zLost[i]=0; zdx[i]=0; zdz[i]=0;
+    zl[i]=L||0; zyv[i]=(L||0)*LH; ztr[i]=null; zLosT[i]=Math.random()*0.3; zDirect[i]=0; zSees[i]=-1; zburn[i]=0; zstun[i]=0; zLost[i]=0; zdx[i]=0; zdz[i]=0; zdown[i]=0; zgrab[i]=0; zfeed[i]=0;
     const r=Math.random(); zvar[i]=r<.07?3:r<.2?2:r<.32?1:0;
     zsc[i]=zvar[i]===1?rand(1.12,1.24):rand(.9,1.04);
     zhunch[i]=zvar[i]===1?rand(.1,.3):rand(.25,.75);
@@ -106,19 +108,21 @@ function spawnZ(x,z,state,ox,oz,L){
 function killZ(i,corpse=true){
   if(!corpse||zst[i]===5){ zst[i]=0; ztr[i]=null; hideZ(i); return; }
   G.kills++; STATS.kills++; NIGHT_LOG.kills+=G.phase==='night'?1:0; if(HIT.quiet) STATS.quiet++; corpseDrop(i); if(HIT.s) giveXP(HIT.s,HIT.quiet?12:8,HIT.melee?'melee':'fight');
-  zst[i]=5; zdie[i]=0; ztr[i]=null;
+  zst[i]=5; zdie[i]=0; ztr[i]=null; zfeed[i]=0; if(zgrab[i]) releaseGrab(i); zdown[i]=0;
   if(!zdx[i]&&!zdz[i]){ zdx[i]=Math.sin(zang[i]+Math.PI); zdz[i]=Math.cos(zang[i]+Math.PI); }
   const fwd=Math.sin(zang[i])*zdx[i]+Math.cos(zang[i])*zdz[i];
   zfall[i]=fwd>0?1:-1;
+  ragdollStart(i);
   const gp=zgib[i], y=zyv[i];
   if(gp===1){ zmiss[i]|=4; gib('head',i,zx[i],y+1.65*zsc[i],zz[i],zdx[i],zdz[i]); }
   else if(gp===2){ zmiss[i]|=8; gib('armL',i,zx[i]-0.3,y+1.3,zz[i],zdx[i],zdz[i]); }
   else if(gp===3){ zmiss[i]|=16; gib('armR',i,zx[i]+0.3,y+1.3,zz[i],zdx[i],zdz[i]); }
 }
 function updateDying(i,dt){
-  zdie[i]+=dt; const u=Math.min(1,zdie[i]/0.55);
-  poseDying(i,u);
-  if(u>=1){
+  zdie[i]+=dt;
+  const done=ragdollStep(i,dt);
+  if(charHidden(zl[i],zx[i],zz[i],zyv[i])) hideZ(i); else poseRagdoll(i);
+  if(done){ ragdollEnd(i); poseRagdoll(i);
     pool(zx[i]+zdx[i]*0.8,zz[i]+zdz[i]*0.8,rand(1.0,1.8),zyv[i]);
     const ps=squad[me]; if(Math.hypot(zx[i]-ps.x,zz[i]-ps.z)<16) sThud(0.18);
     freezeCorpse(i); zst[i]=0; hideZ(i);
@@ -151,7 +155,8 @@ function noiseField(){
 }
 function moan(i){
   if(zmoan[i]>0) return; zmoan[i]=4;
-  const s=squad[me]; sMoan(Math.hypot(zx[i]-s.x,zz[i]-s.z));
+  const s=squad[me], d=Math.hypot(zx[i]-s.x,zz[i]-s.z); zSound(i,Math.random()<.18?'shriek':Math.random()<.25?'gurgle':'moan');
+  if(d<14) caption(Math.random()<.5?'moaning':'growling',zx[i],zz[i]);
   eachNear(zx[i],zz[i],8,j=>{
     if(j===i||zl[j]!==zl[i]) return; const st=zst[j]; if(st===1||st===4){ if(Math.random()<.65){ zst[j]=2; ztx[j]=zx[i]+rand(-2,2); ztz[j]=zz[i]+rand(-2,2); zwt[j]=zl[i];} }
   });
@@ -163,11 +168,12 @@ function onDoorOpened(e,p,loud){ if(!loud) makeNoise(p.x,p.z,3,p.L); if(!AC) ret
 function onEdgeHit(e,amt){
   const now=performance.now(); if(now-lastBash<260) return; lastBash=now;
   const p=edgeMid(e), y=p.L*LH, s=squad[me], d=Math.hypot(p.x-s.x,p.z-s.z);
-  if(d<30){ sThud(0.35/(1+d*0.12)); }
+  if(d<30){ sThud(0.35/(1+d*0.12)); if(d<20) caption('banging on a door',p.x,p.z); }
   chips(p.x,y+rand(0.6,1.6),p.z,2,0,0,ED.t[e]===ET.FENCE?0x8a9096:0x6a5a44);
 }
 function onEdgeBroken(e,was){
   const p=edgeMid(e), y=p.L*LH, s=squad[me], d=Math.hypot(p.x-s.x,p.z-s.z);
+  caption(was===ET.WIN?'glass shatters':was===ET.FENCE?'fence gives way':'wood splinters',p.x,p.z);
   if(was===ET.WIN){ glassBurst(p.x,y+1.5,p.z); if(AC&&d<40) SFX.glass(clamp((p.x-s.x)/20,-1,1)); makeNoise(p.x,p.z,18,p.L); }
   else { chips(p.x,y+1,p.z,10,0,0,0x6a5a44); emit(false,p.x,y+0.8,p.z,0,0.6,0,1.4,0.5,2.2,0x8a8680,0.5); if(AC&&d<40) sThud(0.6/(1+d*0.08)); makeNoise(p.x,p.z,16,p.L); }
   if(was===ET.DOOR||was===ET.BOARD) radioLine(d<25?'They broke through a door close by.':'Something gave way out there.');
@@ -202,7 +208,10 @@ function flashAt(x,z,y,sc){ sc=sc===undefined?1:sc; const f=flashes[flashIdx]; c
 function damageZ(j,dmg,fromX,fromZ,knock,blast){
   if(zst[j]===5||!zst[j]) return;
   knock=knock===undefined?0.18:knock;
-  zhp[j]-=dmg; zfl[j]=1;
+  zhp[j]-=dmg; zfl[j]=1; zlastK[j]=knock; zblast[j]=blast?1:0; zfeed[j]=0;
+  if(zgrab[j]&&knock>=0.3) releaseGrab(j);
+  if(zhp[j]>0&&knock>=0.55&&Math.random()<knock*0.42) knockDown(j,knock);
+  if(zhp[j]>0&&Math.random()<0.2) zSound(j,'hurt');
   const dx=zx[j]-fromX, dz=zz[j]-fromZ, d=Math.hypot(dx,dz)||1;
   pushZ(j,dx/d*Math.min(1.6,knock),dz/d*Math.min(1.6,knock));
   if(knock>=0.4) zstun[j]=Math.max(zstun[j],knock*0.4);
@@ -225,7 +234,11 @@ const ray=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0
 const BIND={up:['w','arrowup'],down:['s','arrowdown'],left:['a','arrowleft'],right:['d','arrowright'],sprint:['shift'],sneak:['c'],dodge:[' '],
   reload:['r'],inv:['tab','i'],build:['k'],squad:['j'],shove:['v'],weapon:['x'],mode:['b'],supp:['n'],throw:['g'],thrNext:['t'],use:['e'],light:['f'],
   hold:['1'],follow:['2'],fallback:['3'],quiet:['4'],lines:['l'],swap:['q'],map:['m'],zoom:['z'],endDay:['enter'],keys:['h'],pixel:['p']};
-const KEY2ACT={}; for(const a in BIND) for(const k of BIND[a]) KEY2ACT[k]=a;
+const BIND_DEFAULT=JSON.parse(JSON.stringify(BIND));
+if(SET.binds) for(const a in SET.binds) if(BIND[a]) BIND[a]=SET.binds[a];
+const KEY2ACT={};
+function rebuildKeyMap(){ for(const k in KEY2ACT) delete KEY2ACT[k]; for(const a in BIND) for(const k of BIND[a]) KEY2ACT[k]=a; }
+rebuildKeyMap();
 function keyDown(a){ for(const k of BIND[a]) if(keys[k]) return true; return false; }
 // the point on the floor (plus h metres) under the cursor
 function aimPoint(s,h){
@@ -252,7 +265,7 @@ function useKey(s){
 }
 function act(a,up){
   const s=squad[me];
-  if(up){ if(a==='throw'&&throwAiming){ throwAiming=false; if(s.alive) throwIt(s,THR_ORDER[thrSel]); } return; }
+  if(up){ if(a==='throw'&&throwAiming&&SET.throwHold){ throwAiming=false; if(s.alive) throwIt(s,THR_ORDER[thrSel]); } return; }
   if(a==='hold'){G.order='hold';radioLine('Hold the line.'); for(const q of squad){ if(q.i===me||!present(q)) continue; q.post=linePost(q); q.postL=0; q.postSet=false; } orderAll('hold');}
   else if(a==='follow'){G.order='follow';radioLine('On me.'); orderAll('follow');}
   else if(a==='fallback'){G.order='fallback';radioLine('Back to the shop.'); orderAll('fallback');}
@@ -268,16 +281,17 @@ function act(a,up){
   else if(a==='weapon') cycleWeapon(s);
   else if(a==='mode') cycleMode(s);
   else if(a==='supp') toggleSupp(s);
-  else if(a==='throw'){ if(THR[THR_ORDER[thrSel]]>0) throwAiming=true; else radioLine('No '+THR_NAME[THR_ORDER[thrSel]].toLowerCase()+'s left.'); }
+  else if(a==='throw'){ if(throwAiming&&!SET.throwHold) throwAiming=false; else if(THR[THR_ORDER[thrSel]]>0) throwAiming=true; else radioLine('No '+THR_NAME[THR_ORDER[thrSel]].toLowerCase()+'s left.'); }
   else if(a==='thrNext') thrSel=(thrSel+1)%THR_ORDER.length;
-  else if(a==='sneak'){ s.sneak=!s.sneak; }
+  else if(a==='sneak'){ if(!SET.sneakHold) s.sneak=!s.sneak; }
+  else if(a==='sprint'){ if(!SET.sprintHold) s.sprintOn=!s.sprintOn; }
   else if(a==='dodge') dodgeOrVault(s);
   else if(a==='lines'){G.lightsOn=!G.lightsOn; bannerShow(G.lightsOn?'LIGHTS UP':'LIGHTS OUT','',1.4);}
   else if(a==='keys'){const el=document.getElementById('keys'); el.hidden=!el.hidden;}
   else if(a==='zoom'){G.camHTarget=G.camHTarget>90?68:115;}
   else if(a==='map'){ G.mapOpen=!G.mapOpen; document.getElementById('bigmap').hidden=!G.mapOpen; if(G.mapOpen) drawBigMap(); }
   else if(a==='endDay'){ if(G.phase==='day') G.t=0; }
-  else if(a==='pixel'){ userScaleBias=(userScaleBias+1)%3; resize(); }
+  else if(a==='pixel'){ SET.pixel=(SET.pixel+1)%3; applySettings(); saveSettings(); }
 }
 let lastOrderMsg=0;
 function radioLine(m){ const n=performance.now(); if(n-lastOrderMsg>400){ radio(m); lastOrderMsg=n; } }
@@ -286,11 +300,12 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k===' '||k==='tab') e.preventDefault();
   if(keys[k]) return; keys[k]=true;
-  if(k==='escape'){ if(G.mapOpen){ act('map'); return; } if(INV.open){ invClose(); return; } if(wsOpen){ wsToggle(); return; } if(SQ.open){ sqToggle(); return; } if(BUILD.on){ buildToggle(); return; }
+  if(k==='escape'){ if(!setEl.hidden){ settingsClose(); return; } if(G.mapOpen){ act('map'); return; } if(INV.open){ invClose(); return; } if(wsOpen){ wsToggle(); return; } if(SQ.open){ sqToggle(); return; } if(BUILD.on){ buildToggle(); return; }
     if(PLAN.open) return; if(G.paused) pauseClose(); else pauseOpen(); return;}
   if(G.paused) return;
   const a=KEY2ACT[k];
   if(k===']'||k==='['){ setSpeed(k===']'?1:-1); return; }
+  if(k==='`'){ devToggle(); return; }
   if(k==='f5'){ e.preventDefault(); saveGame(); return; }
   // with a screen open, only movement and closing it
   if(INV.open||wsOpen||SQ.open){ if(a==='inv'||a==='use'||a==='squad') act(a); return; }
@@ -316,6 +331,7 @@ glCanvas.addEventListener('pointerdown',e=>{
     return;
   }
   if(BUILD.on){ if(e.button===2) buildRightClick(); else buildClick(); return; }
+  if(throwAiming&&!SET.throwHold&&e.button===0){ throwAiming=false; throwIt(squad[me],THR_ORDER[thrSel]); return; }
   if(e.button===2) shove(squad[me]); else { mouseDown=true; squad[me].trig=true; }
 });
 addEventListener('pointermove',e=>{
@@ -364,7 +380,7 @@ function inLight(s){
 function moveSoldier(s,dx,dz,speed,dt){
   if(s.trav){ travStep(s,dt,speed*0.9); s.y=agentY(s); s.vx*=0.9; s.vz*=0.9; return; }
   if(s.hp<45) speed*=0.8;
-  speed*=(WPN[s.wpn].spd||1)*woundSpeed(s)*wxSpeed(s);
+  speed*=(WPN[s.wpn].spd||1)*woundSpeed(s)*wxSpeed(s)*(s.grabbed?0.25:1);
   const seg=s.L===0?segAt(s.x,s.z,0.1):null; if(seg) speed*=0.45;
   s.vx=lerp(s.vx,dx*speed,Math.min(1,dt*12)); s.vz=lerp(s.vz,dz*speed,Math.min(1,dt*12));
   moveAgent(s,s.vx*dt,s.vz*dt,0.33,AG.SOLDIER);
@@ -405,7 +421,9 @@ function updatePlayer(s,dt){
   if(s.dodge){ stepDodge(s,dt); s.status='DODGE'; return; }
   // sprint: fast, loud, gun down, burns stamina
   if(BUILD.on||INV.open||wsOpen||WHEEL.open||SQ.open) firing=false;
-  const wantSprint=keyDown('sprint')&&ml>0.2&&!firing&&!throwAiming&&s.actT<=0;
+  if(SET.sneakHold) s.sneak=keyDown('sneak');
+  const wantSprint=(SET.sprintHold?keyDown('sprint'):s.sprintOn)&&ml>0.2&&!firing&&!throwAiming&&s.actT<=0;
+  if(!SET.sprintHold&&s.sprintOn&&ml<0.2) s.sprintOn=false;
   if(wantSprint&&!s.sprint&&s.stam>20&&s.wounds.leg<2){ s.sprint=true; s.sneak=false; cancelReload(s); }
   if(s.sprint&&(!wantSprint||s.stam<=0)) s.sprint=false;
   if(s.sprint){ s.stam=Math.max(0,s.stam-19*dt*(hasPerk(s,'runner')?0.6:1)); s.stamT=0.7; }
@@ -503,6 +521,25 @@ function updateBuddy(s,dt){
 }
 
 /* ---------- per-frame: zombies ---------- */
+let ZNM=1;
+// holding on: stick to them, pull, and bite if they don't break free in time
+function stepGrabZ(i,dt){
+  const s=squad[zgrab[i]-1];
+  if(!s||!present(s)||s.L!==zl[i]||Math.hypot(s.x-zx[i],s.z-zz[i])>1.6){ releaseGrab(i); return false; }
+  zgrabT[i]-=dt;
+  const dx=zx[i]-s.x, dz=zz[i]-s.z, d=Math.hypot(dx,dz)||1;
+  zx[i]=s.x+dx/d*0.72; zz[i]=s.z+dz/d*0.72; zang[i]=Math.atan2(-dx,-dz);
+  s.vx*=0.8; s.vz*=0.8;
+  if(zgrabT[i]<=0){
+    releaseGrab(i); zcd[i]=1.1;
+    if(!(DEV.god&&s.i===me)){ s.hp-=13*ZNM*(hasPerk(s,'tough')?0.8:1); s.stress=Math.min(100,s.stress+14); woundOnBite(s,zx[i],zz[i]); NIGHT_LOG.hurt.add(s.short);
+      bleed(s.x,1.2,s.z,s.x-zx[i],s.z-zz[i],9,1.8,s.y);
+      if(s.i===me){ hurtFlash=0.45; G.shake=Math.max(G.shake,0.65); }
+      if(s.hp<=0) soldierDown(s); }
+  }
+  if(charHidden(zl[i],zx[i],zz[i],zyv[i])) hideZ(i); else poseGrab(i,s,dt);
+  return true;
+}
 const zA={x:0,z:0,L:0,trav:null};
 const chaseF=[];
 function chaseField(k){
@@ -513,7 +550,8 @@ function chaseField(k){
 }
 function updateZombies(dt){
   rebuildGrid();
-  const nightMul=1+(G.night-1)*0.07;
+  const nightMul=1+(G.night-1)*0.07; ZNM=nightMul;
+  for(const s of squad) s.grabbed=0; for(let i=0;i<MAXZ;i++) if(zgrab[i]&&zst[i]&&zst[i]!==5){ const s=squad[zgrab[i]-1]; if(s) s.grabbed++; }
   // how far away the dead can pick each soldier out: lights make you visible, sneaking and hiding in the dark don't
   for(const s of squad){ s.near=0; s.sight=present(s)?(6.5+(s.lightOn?7.5:0)+(inLight(s)?6:0))*(G.fogFar<35?0.9:1.25)*(s.sneak?0.6:1)*wxSight():0; if(s.hiding) s.sight=Math.min(s.sight,2.2); }
   const NF=noiseField();
@@ -531,6 +569,8 @@ function updateZombies(dt){
     }
     zyv[i]=zl[i]*LH;
     // staggered: stands there reeling
+    if(zdown[i]>0){ zdown[i]-=dt; zstun[i]=Math.max(zstun[i]-dt,0); if(charHidden(zl[i],zx[i],zz[i],zyv[i])) hideZ(i); else poseDown(i); continue; }
+    if(zgrab[i]&&stepGrabZ(i,dt)) continue;
     if(zstun[i]>0){ zstun[i]-=dt; zvx[i]*=0.85; zvz[i]*=0.85; zph[i]+=dt*0.6; if(zfl[i]>0) zfl[i]=Math.max(0,zfl[i]-dt*2); drawZ(i,0.2,dt); continue; }
     let x=zx[i], z=zz[i]; const L=zl[i];
     zmoan[i]-=dt; zcd[i]-=dt; zLosT[i]-=dt;
@@ -541,7 +581,9 @@ function updateZombies(dt){
     if(zLosT[i]<=0){ zLosT[i]=0.22+Math.random()*0.1;
       zSees[i]=(bs>=0&&bd<squad[bs].sight&&los(L,x,z,squad[bs].x,squad[bs].z))?bs:-1;
       if(st===2) zDirect[i]=((zwt[i]|0)===L&&walkLine(L,x,z,ztx[i],ztz[i]))?1:0; }
-    if(zSees[i]>=0&&st!==3){ zst[i]=3; ztgt[i]=zSees[i]; moan(i); }
+    if(zSees[i]>=0&&st!==3){ zst[i]=3; ztgt[i]=zSees[i]; zfeed[i]=0; moan(i); }
+    if(zfeed[i]&&zst[i]===4){ if(zfeed[i]===1){ if(Math.random()<dt*0.25) zSound(i,'feed'); zph[i]+=dt; if(charHidden(L,x,z,zyv[i])) hideZ(i); else poseFeed(i); continue; } }
+    else if(zst[i]!==4) zfeed[i]=0;
     // goal
     let tx,tz,spd,wantE=0;
     const cs=zst[i];
@@ -570,7 +612,9 @@ function updateZombies(dt){
     } else {
       tx=ztx[i]; tz=ztz[i]; spd=0.65*zspd[i];
       zwt[i]-=dt;
-      if(zwt[i]<=0||Math.hypot(tx-x,tz-z)<1){ zwt[i]=rand(4,10); ztx[i]=x+rand(-7,7); ztz[i]=z+rand(-7,7);
+      if(zfeed[i]===2&&Math.hypot(tx-x,tz-z)<1.1){ zfeed[i]=1; zang[i]=Math.atan2(tx-x,tz-z); }
+      if(zfeed[i]!==2&&(zwt[i]<=0||Math.hypot(tx-x,tz-z)<1)){ zwt[i]=rand(4,10); ztx[i]=x+rand(-7,7); ztz[i]=z+rand(-7,7);
+        const f=Math.random()<.35?feedSpot(i):null; if(f){ ztx[i]=f.x+rand(-.7,.7); ztz[i]=f.z+rand(-.7,.7); zfeed[i]=2; zwt[i]=30; }
         if(!walkLine(L,x,z,ztx[i],ztz[i])){ ztx[i]=x+rand(-2,2); ztz[i]=z+rand(-2,2); } }
     }
     let dx=tx-x, dz=tz-z; const dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
@@ -614,7 +658,8 @@ function updateZombies(dt){
     // bite
     if(bs>=0&&zcd[i]<=0){
       const s=squad[bs];
-      if(s.L===L&&Math.hypot(s.x-nx,s.z-nz)<1.05&&s.iframe<=0&&!s.vault){
+      if(s.L===L&&Math.hypot(s.x-nx,s.z-nz)<1.05&&s.iframe<=0&&!s.vault&&!s.grabbed&&!(DEV.god&&bs===me)&&Math.random()<0.45&&!zgrab[i]){ startGrab(i,bs); zcd[i]=0.3; }
+      else if(s.L===L&&Math.hypot(s.x-nx,s.z-nz)<1.05&&s.iframe<=0&&!s.vault&&!(DEV.god&&bs===me)){
         zcd[i]=0.95; s.hp-=10*nightMul*(hasPerk(s,'tough')?0.8:1); s.stress=Math.min(100,s.stress+9); woundOnBite(s,nx,nz); NIGHT_LOG.hurt.add(s.short); if(s.mounted&&s.i!==me) dismount(s);
         bleed(s.x,1.2,s.z,s.x-nx,s.z-nz,7,1.6,s.y);
         if(bs===me){ hurtFlash=0.35; G.shake=Math.max(G.shake,0.55); const dd=Math.hypot(s.x-nx,s.z-nz)||1; G.kickX+=(s.x-nx)/dd*0.5; G.kickZ+=(s.z-nz)/dd*0.5; cancelReload(s); }
@@ -645,7 +690,7 @@ let hurtFlash=0;
 function soldierDown(s){
   s.alive=false; s.hp=0; s.lightOn=false; s.light.intensity=0;
   s.mesh.rotation.set(Math.PI/2,s.ang,0); s.mesh.position.y=s.y+0.25;
-  bannerShow(s.short+' IS DOWN','',2.2); STATS.lost.push(s.name); NIGHT_LOG.lost.push(s.short); if(s.mounted) dismount(s); onSoldierLost(s); const wit=squad.find(q=>q!==s&&present(q)); if(wit) bark(wit,'down',true);
+  bannerShow(s.short+' IS DOWN','',2.2); feeds.push({x:s.x,z:s.z,L:s.L}); STATS.lost.push(s.name); NIGHT_LOG.lost.push(s.short); if(s.mounted) dismount(s); onSoldierLost(s); const wit=squad.find(q=>q!==s&&present(q)); if(wit) bark(wit,'down',true);
   if(s.i===me){ const alive=squad.find(q=>present(q)); if(alive){ me=alive.i; alive.lightOn=true; } }
   if(!squad.some(q=>present(q))&&!squad.some(q=>q.alive&&q.away)) gameOver();
 }
@@ -999,6 +1044,10 @@ function frame(now){
       if(s.throwT>0){ const k=1-s.throwT/0.45; wx=-1.6*Math.sin(k*Math.PI); }
       else if(s.i===me&&throwAiming) wx=-1.2;
       u.W.position.set(0,0,wz); u.W.rotation.set(wx,wy,0);
+      fatiguePose(s,u); magInHand(s,u);
+      const still=sp<0.15&&s.reloadT<=0&&s.swingT<=0&&!(s.i===me&&mouseDown)&&!(s.i!==me&&s.aimJ>=0)&&!s.dodge&&!s.vault;
+      soldierIdle(s,u,d,still);
+      if(s.grabbed){ u.torso.rotation.z+=Math.sin(time*22)*0.12; u.torso.rotation.x-=0.2; }
     }
     const lit=s.lightOn&&!hidden;
     s.light.position.set(s.x+Math.sin(s.ang)*0.4,s.y+1.6,s.z+Math.cos(s.ang)*0.4);
@@ -1016,13 +1065,13 @@ function frame(now){
   G.camH=lerp(G.camH,G.camHTarget,Math.min(1,(dt||0.016)*3));
   const cx=lerp(camera.position.x,p.x,Math.min(1,(dt||0.016)*5)), cz=lerp(camera.position.z-CAM_BACK,p.z,Math.min(1,(dt||0.016)*5));
   G.shake=Math.max(0,G.shake-(dt||0.016)*2.8);
-  const shk=G.shake*G.shake*0.9, sx_=(Math.random()*2-1)*shk, sz_=(Math.random()*2-1)*shk;
+  const shk=SET.shake?G.shake*G.shake*0.9:0, sx_=(Math.random()*2-1)*shk, sz_=(Math.random()*2-1)*shk;
   const cy=G.camH+p.y, kd=Math.min(1,(dt||0.016)*9);
   G.kickX=lerp(G.kickX,0,kd); G.kickZ=lerp(G.kickZ,0,kd);
-  const kx=sx_+G.kickX*0.5, kz=sz_+G.kickZ*0.5;
+  const kx=sx_+(SET.shake?G.kickX*0.5:0), kz=sz_+(SET.shake?G.kickZ*0.5:0);
   camera.position.set(cx+kx,cy,cz+CAM_BACK+kz); camera.lookAt(cx+kx,p.y,cz-1+kz);
   lowHealth(p,dt||0.016);
-  updateLaser(); updateBuild();
+  updateLaser(); updateBuild(); updateArcs(dt||0.016); updateCloth(); if(AC){ updateMusic(dt||0.016); stressAudio(dt,p); } devTick(Math.min(0.5,(now-(frame.lastNow||now))/1000)); frame.lastNow=now;
   if(WHEEL.pending&&!WHEEL.open&&performance.now()-WHEEL.downT>180&&!INV.open&&!wsOpen&&!SQ.open&&!BUILD.on) wheelOpen();
   if(SQ.open&&Math.random()<0.05) renderSQ();
   updateCuts(p);
@@ -1059,6 +1108,8 @@ function lowHealth(p,dt){
 }
 
 /* ---------- boot ---------- */
+placeVignettes();
+applySettings();
 resize();
 camera.position.set(squad[0].x,68,squad[0].z+CAM_BACK);
 lastCamX=camera.position.x; lastCamZ=camera.position.z;
@@ -1074,6 +1125,7 @@ function beginFromSave(){
   initAudio(); document.getElementById('start').hidden=true;
   try{ applySave(S); }catch(e){ console.error(e); bannerShow('SAVE WOULD NOT LOAD','Starting fresh.',3); G.started=true; startDay(); }
 }
+document.getElementById('setBtn').addEventListener('click',settingsOpen);
 { const cb=document.getElementById('contBtn'); if(cb){ cb.hidden=!hasSave(); cb.addEventListener('click',beginFromSave); }
   const bd=document.getElementById('startBoard'); if(bd) bd.innerHTML=loadBoard().length?'<div class="sub">THE BOARD</div>'+boardHTML():'';
   if(sessionStorage.getItem('fogline.loadNow')){ sessionStorage.removeItem('fogline.loadNow'); setTimeout(beginFromSave,50); } }

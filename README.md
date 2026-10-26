@@ -32,5 +32,7 @@ Cloudflare Workers Builds runs `npx wrangler deploy` on every push to `main`. `w
 - `public/js/build.js` — build mode, traps and the MG nest, boarding and fence cutting, the workshop
 - `public/js/squad.js` — recruits, wounds, XP and perks, relationships, fatigue, orders and the wheel, scavenging runs, squad cards and screen
 - `public/js/days.js` — the clock, weather, kinds of night, day events, radio, night talks, dawn planning, score board, saving
+- `public/js/anim.js` — ragdoll deaths, knockdowns, grabs, feeding, soldier idles, melee arcs, cloth, bodies
+- `public/js/settings.js` — settings, key rebinding, sound captions, dev menu (backquote)
 - `public/js/game.js` — game state, AI, input, HUD, main loop
 - `docs/design.md` — every design decision so far

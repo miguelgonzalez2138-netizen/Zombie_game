@@ -59,7 +59,7 @@ function soldierMesh(idx,look){
   const W=new THREE.Group(); torso.add(W);
   // weapon, arms and hands are built per weapon in weapons.js (setHold)
   const arms=[];
-  g.userData={legs,torso,W,M,headBand,armBands:arms,base:{uni:M.uni.color.clone(),uni2:M.uni2.color.clone(),vest:M.vest.color.clone(),pack:M.pack.color.clone()}};
+  g.userData={legs,torso,head,W,M,headBand,armBands:arms,base:{uni:M.uni.color.clone(),uni2:M.uni2.color.clone(),vest:M.vest.color.clone(),pack:M.pack.color.clone()}};
   return g;
 }
 const DIRT=new THREE.Color(0x4e4636);
