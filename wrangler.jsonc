@@ -1,0 +1,8 @@
+{
+  // Static site: Cloudflare serves everything in ./public as-is. No build step.
+  "name": "zombie-game",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public"
+  }
+}

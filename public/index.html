@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fog Line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+
+<div id="hud">
+  <div id="tl">
+    <div id="night">DAY 1</div>
+    <div id="phase">Fog thin</div>
+    <div id="horde">Horde: not seen</div>
+    <div class="meter"><span>NOISE</span><i><b id="noiseBar"></b></i></div>
+  </div>
+  <div id="radio"></div>
+  <div id="banner"><div id="bannerT"></div><div id="bannerS"></div></div>
+  <div id="bottom">
+    <div id="line"></div>
+    <div id="squad"></div>
+  </div>
+  <div id="orders"></div>
+  <div id="keys">
+    <kbd>WASD</kbd> move &nbsp;<kbd>Mouse</kbd> aim &nbsp;<kbd>Click</kbd> fire &nbsp;<kbd>R</kbd> reload<br>
+    <kbd>V</kbd>/<kbd>RMB</kbd> shove &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
+    <kbd>1</kbd> hold &nbsp;<kbd>2</kbd> follow &nbsp;<kbd>3</kbd> fall back &nbsp;<kbd>4</kbd> fire / quiet<br>
+    <kbd>Q</kbd> swap &nbsp;<kbd>E</kbd> repair (loud) &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>H</kbd> hide
+  </div>
+</div>
+
+<div id="touch">
+  <div class="tcol l">
+    <button id="tHold">HOLD</button>
+    <button id="tFollow">FOLLOW</button>
+    <button id="tBack">FALL BACK</button>
+    <button id="tQuiet">QUIET</button>
+    <button id="tLights">LIGHTS</button>
+  </div>
+  <div class="tcol r">
+    <button id="tShove">SHOVE</button>
+    <button id="tReload">RELOAD</button>
+    <button id="tSwap">SWAP</button>
+    <button id="tFix">REPAIR</button>
+    <button id="tZoom">ZOOM</button>
+    <button id="tDay">END DAY</button>
+  </div>
+</div>
+
+<div class="ov" id="start">
+  <div class="box">
+    <h1>FOG LINE</h1>
+    <p>Second squad was told to hold Wolcott &amp; 18th until the trucks came back. That was eleven days ago. The horde moves along 18th most nights, behind the fog. Keep the line up, keep it quiet, and let it pass.</p>
+    <div class="ctl">
+      <b>WASD / Mouse</b><span>Move and aim. Click to fire. Every shot carries.</span>
+      <b>V or right-click</b><span>Shove. Quiet.</span>
+      <b>1 2 3 4</b><span>Hold the line, follow me, fall back to the shop, weapons free or hold fire.</span>
+      <b>Q E L F</b><span>Swap soldier, repair a barricade, kill the line lights, flashlight.</span>
+      <b>Touch</b><span>Left thumb moves, right thumb aims and fires.</span>
+    </div>
+    <button id="startBtn">HOLD THE LINE</button>
+  </div>
+</div>
+
+<div class="ov" id="over" hidden>
+  <div class="box">
+    <h1 id="overT">LINE LOST</h1>
+    <p id="overS"></p>
+    <button id="againBtn">TRY AGAIN</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/world.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/atmosphere.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
