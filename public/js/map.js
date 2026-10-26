@@ -15,7 +15,7 @@ const MR=mulberry(1918);
 const mr=(a,b)=>a+MR()*(b-a), mri=(a,b)=>Math.floor(a+MR()*(b-a+1)), mpick=a=>a[Math.floor(MR()*a.length)], mch=p=>MR()<p;
 
 const SURF={ASPHALT:0,CONCRETE:1,GRASS:2,WOOD:3,TILE:4,GRAVEL:5,CARPET:6,METAL:7,DIRT:8,ALLEY:9,ROOF:10};
-const BLK={FREE:0,SOLID:1,FURN:2,PROP:3,LINE:4};
+const BLK={FREE:0,SOLID:1,FURN:2,PROP:3,LINE:4,BUILT:5};
 const ET={NONE:0,WALL:1,IWALL:2,WIN:3,WINB:4,DOOR:5,DOPEN:6,DGONE:7,BOARD:8,FENCE:9,FCUT:10,RAIL:11};
 const EK={WALL:0,DOOR:1,GATE:2,WIN:3,SHOPWIN:4};   // what an edge *is*, independent of its current state
 const EHP=[0,0,260,14,0,140,0,0,220,320,0,0];

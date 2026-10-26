@@ -8,28 +8,36 @@
 // slot 0 long gun, 1 sidearm, 2 melee. rof = seconds between shots; semi = rate when switched to semi.
 // spread/move/bloom in radians; pen = extra bodies a round goes through; crit = chance of a head shot.
 const WPN={
-  m4:  {name:'M4 CARBINE',slot:0,ammo:'556',mag:30,dmg:38,rof:0.085,semi:0.13,modes:['AUTO','SEMI'],spread:0.016,move:0.05,bloom:0.010,bloomMax:0.08,range:40,pen:1,crit:0.2,noise:46,supp:true,reload:2.1,knock:0.22,shake:0.14,kick:0.22,muz:0.95,snd:'rifle',spd:1,hold:'rifle'},
-  saw: {name:'M249 SAW',slot:0,ammo:'556',mag:100,dmg:34,rof:0.068,modes:['AUTO'],spread:0.028,move:0.12,bloom:0.015,bloomMax:0.12,range:42,pen:1,crit:0.14,noise:60,reload:4.4,knock:0.3,shake:0.2,kick:0.3,muz:1.05,snd:'mg',spd:0.8,hold:'rifle'},
+  m4:  {name:'M4 CARBINE',slot:0,mods:['supp','scope','ext','grip'],ammo:'556',mag:30,dmg:38,rof:0.085,semi:0.13,modes:['AUTO','SEMI'],spread:0.016,move:0.05,bloom:0.010,bloomMax:0.08,range:40,pen:1,crit:0.2,noise:46,supp:true,reload:2.1,knock:0.22,shake:0.14,kick:0.22,muz:0.95,snd:'rifle',spd:1,hold:'rifle'},
+  saw: {name:'M249 SAW',slot:0,mods:['grip'],ammo:'556',mag:100,dmg:34,rof:0.068,modes:['AUTO'],spread:0.028,move:0.12,bloom:0.015,bloomMax:0.12,range:42,pen:1,crit:0.14,noise:60,reload:4.4,knock:0.3,shake:0.2,kick:0.3,muz:1.05,snd:'mg',spd:0.8,hold:'rifle'},
   m24: {name:'M24 SNIPER',slot:0,ammo:'762',mag:5,dmg:240,rof:1.1,modes:['BOLT'],spread:0.0015,move:0.07,bloom:0,bloomMax:0,range:75,pen:4,crit:0.45,noise:68,reload:2.8,knock:0.9,shake:0.36,kick:0.7,muz:1.25,snd:'big',spd:0.9,hold:'rifle',heavy:true},
-  m870:{name:'870 SHOTGUN',slot:0,ammo:'12g',mag:6,dmg:24,pellets:9,cone:0.085,rof:0.8,modes:['PUMP'],spread:0.008,move:0.03,bloom:0,bloomMax:0,range:17,pen:0,crit:0.05,noise:54,shell:0.5,knock:0.5,shake:0.34,kick:0.6,muz:0.95,snd:'shot',spd:0.95,hold:'rifle'},
-  r22: {name:'.22 RIFLE',slot:0,ammo:'22',mag:10,dmg:26,rof:0.24,modes:['SEMI'],spread:0.006,move:0.05,bloom:0.004,bloomMax:0.03,range:45,pen:0,crit:0.32,noise:14,reload:1.9,knock:0.05,shake:0.05,kick:0.08,muz:1.05,snd:'small',spd:1,hold:'rifle'},
-  m9:  {name:'M9 PISTOL',slot:1,ammo:'9mm',mag:15,dmg:30,rof:0.15,modes:['SEMI'],spread:0.02,move:0.04,bloom:0.014,bloomMax:0.07,range:30,pen:0,crit:0.2,noise:32,supp:true,reload:1.3,knock:0.15,shake:0.1,kick:0.16,muz:0.62,snd:'pistol',spd:1.05,hold:'pistol'},
+  m870:{name:'870 SHOTGUN',slot:0,mods:['ext','grip'],ammo:'12g',mag:6,dmg:24,pellets:9,cone:0.085,rof:0.8,modes:['PUMP'],spread:0.008,move:0.03,bloom:0,bloomMax:0,range:17,pen:0,crit:0.05,noise:54,shell:0.5,knock:0.5,shake:0.34,kick:0.6,muz:0.95,snd:'shot',spd:0.95,hold:'rifle'},
+  r22: {name:'.22 RIFLE',slot:0,mods:['supp','scope','ext'],ammo:'22',mag:10,dmg:26,rof:0.24,modes:['SEMI'],spread:0.006,move:0.05,bloom:0.004,bloomMax:0.03,range:45,pen:0,crit:0.32,noise:14,reload:1.9,knock:0.05,shake:0.05,kick:0.08,muz:1.05,snd:'small',spd:1,hold:'rifle'},
+  m9:  {name:'M9 PISTOL',slot:1,mods:['supp','ext'],ammo:'9mm',mag:15,dmg:30,rof:0.15,modes:['SEMI'],spread:0.02,move:0.04,bloom:0.014,bloomMax:0.07,range:30,pen:0,crit:0.2,noise:32,supp:true,reload:1.3,knock:0.15,shake:0.1,kick:0.16,muz:0.62,snd:'pistol',spd:1.05,hold:'pistol'},
   rev: {name:'.357 REVOLVER',slot:1,ammo:'357',mag:6,dmg:72,rof:0.38,modes:['SEMI'],spread:0.016,move:0.05,bloom:0.03,bloomMax:0.08,range:32,pen:1,crit:0.3,noise:44,shell:0.42,knock:0.45,shake:0.22,kick:0.4,muz:0.62,snd:'big',spd:1.05,hold:'pistol'},
   bat: {name:'BASEBALL BAT',slot:2,melee:true,dmg:58,reach:1.9,arc:0.8,cd:0.62,knock:1.4,crit:0.12,noise:4,spd:1.05,hold:'melee',stun:0.8,hits:3},
   axe: {name:'FIRE AXE',slot:2,melee:true,dmg:95,reach:1.85,arc:0.6,cd:0.9,knock:0.7,crit:0.35,noise:5,spd:1,hold:'melee',stun:0.4,hits:2,edge:true},
+  fists:{name:'BARE HANDS',slot:2,melee:true,dmg:22,reach:1.5,arc:0.7,cd:0.5,knock:0.6,crit:0.04,noise:2,spd:1.05,hold:'pistol',stun:0.3,hits:1},
+  m240:{name:'MOUNTED M240',slot:-1,ammo:'762',mag:100,dmg:52,rof:0.075,modes:['AUTO'],spread:0.012,move:0,bloom:0.008,bloomMax:0.05,range:50,pen:2,crit:0.2,noise:70,reload:5,knock:0.5,shake:0.22,kick:0.3,muz:1.3,snd:'mg',spd:0,hold:'rifle'},
 };
 const AMMO_NAME={'556':'5.56','762':'7.62','12g':'12GA','9mm':'9MM','357':'.357','22':'.22'};
-const AMMO={'556':300,'762':25,'12g':36,'9mm':75,'357':0,'22':0};     // the squad's shared pool
+const AMMO={'556':300,'762':80,'12g':36,'9mm':75,'357':0,'22':0};     // the squad's shared pool
 const THR={frag:3,molotov:3,decoy:3};
 const THR_ORDER=['frag','molotov','decoy'], THR_NAME={frag:'FRAG',molotov:'MOLOTOV',decoy:'DECOY'};
-let spareSupp=1, thrSel=0;
+let thrSel=0;
+const MOD_NAME={supp:'SUPPRESSOR',scope:'SCOPE',ext:'EXT MAG',grip:'GRIP'};
+function modsOf(s,key){ key=key||s.wpn; return s.mods[key]||(s.mods[key]={}); }
+function hasMod(s,m,key){ return !!modsOf(s,key)[m]; }
+// rounds a weapon holds, with an extended mag if fitted
+function magCap(s,key){ key=key||s.wpn; const W=WPN[key]; if(W.melee) return 0; return hasMod(s,'ext',key)?Math.ceil(W.mag*(W.shell?1.35:1.5)):W.mag; }
 
 /* ---------- models ---------- */
 const matSteel=phong({color:0x5c5f62}), matWood=phong({color:0x4e3420}), matWoodL=phong({color:0x9a7a52}), matOD=phong({color:0x3e4232}),
   matAxe=phong({color:0x8e1e16}), matBlade=phong({color:0x9a9ea2,specular:0x666666,shininess:40}), matGrip=phong({color:0x2a2420});
 function gbox(p,w,h,d,mat,x,y,z){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=true; p.add(m); return m; }
 // every gun is modelled along +z with the grip near the origin
-function buildGun(key,supp,bay){
+function buildGun(key,mods,bay){
+  mods=mods||{}; const supp=mods.supp;
   const g=new THREE.Group(), B=(w,h,d,m,x,y,z)=>gbox(g,w,h,d,m,x,y,z);
   if(key==='m4'){ B(.07,.11,.5,matGun,0,0,.12); B(.035,.035,.44,matGun,0,.02,.58); B(.06,.1,.24,matGun,0,-.02,-.22); B(.05,.17,.08,matGun,0,-.12,.14); B(.05,.05,.14,matGun,0,.08,.05);
     if(supp) B(.06,.06,.22,matGun,0,.02,.9); if(bay) B(.014,.035,.24,matBlade,0,-.04,.9+(supp?.08:0)); }
@@ -42,6 +50,12 @@ function buildGun(key,supp,bay){
   else if(key==='rev'){ B(.04,.05,.2,matSteel,0,.04,.1); B(.05,.06,.06,matSteel,0,.03,.02); B(.035,.1,.05,matWood,0,-.04,-.02); }
   else if(key==='bat'){ const h=B(.05,.05,.3,matGrip,0,0,.04); const b=B(.075,.075,.55,matWoodL,0,0,.45); }
   else if(key==='axe'){ B(.045,.045,.8,matWoodL,0,0,.3); B(.03,.16,.13,matAxe,0,.07,.66); B(.03,.07,.05,matBlade,0,.17,.66); B(.03,.06,.07,matGun,0,-.06,.66); }
+  if(!WPN[key].melee&&key!=='m240'){
+    const W=WPN[key], pistol=W.hold==='pistol';
+    if(mods.scope&&!pistol){ B(.05,.05,.24,matGun,0,.12,.06); B(.06,.06,.03,matSteel,0,.12,.19); }
+    if(mods.ext){ B(pistol?.032:.05,pistol?.08:.14,.07,matGun,0,pistol?-.14:-.24,pistol?0:.14); }
+    if(mods.grip&&!pistol){ B(.035,.1,.04,matGun,0,-.09,.38); }
+  }
   return g;
 }
 // hands and arms for a hold: rifle (two hands on the gun), pistol (both arms out), melee (choked up, weapon raised)
@@ -55,7 +69,7 @@ function setHold(s){
   if(u.held) for(const m of u.held) W.remove(m);
   u.held=[]; u.armBands.length=0;
   const key=s.wpn, def=WPN[key], H=HOLD[def.hold];
-  const gun=buildGun(key,!!s.supp[key],s.bay&&key==='m4'); gun.position.set(...H.gun); gun.rotation.set(...H.gr); W.add(gun); u.held.push(gun); u.gun=gun;
+  const gun=buildGun(key,modsOf(s,key),s.bay&&key==='m4'); gun.position.set(...H.gun); gun.rotation.set(...H.gr); W.add(gun); u.held.push(gun); u.gun=gun;
   for(let k=0;k<2;k++){
     const sx=k?-1:1, hand=new THREE.Vector3(...H.hands[k]), sh=new THREE.Vector3(sx*0.28,0.56,0), d=hand.clone().sub(sh), L=d.length();
     const m=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,L),u.M.uni); m.castShadow=true;
@@ -70,7 +84,7 @@ function setHold(s){
 function equip(s,slot,quiet){
   const key=s.inv[slot]; if(!key) return false;
   s.slot=slot; s.wpn=key; s.reloadT=0; s.drawT=quiet?0:0.35; s.bloom=0; s.cycleT=0;
-  if(s.mags[key]===undefined) s.mags[key]=WPN[key].melee?0:WPN[key].mag;
+  if(s.mags[key]===undefined) s.mags[key]=magCap(s,key);
   if(s.modes[key]===undefined) s.modes[key]=0;
   const u=s.mesh.userData, yaw=s.mesh.rotation.y, rx=s.mesh.rotation.x, W=u.W; s.mesh.rotation.set(0,0,0); W.position.set(0,0,0); W.rotation.set(0,0,0);
   u.torso.position.set(0,0.86,0); u.torso.rotation.set(0,0,0);
@@ -80,18 +94,25 @@ function equip(s,slot,quiet){
   if(!quiet&&AC) SFX.rack(0,0.25);
   return true;
 }
-for(const s of squad){ for(let k=0;k<3;k++){ const key=s.inv[k]; if(key){ s.mags[key]=WPN[key].melee?0:WPN[key].mag; s.modes[key]=0; } } equip(s,0,true); }
+for(const s of squad){ s.mods={}; for(let k=0;k<3;k++){ const key=s.inv[k]; if(key){ s.mags[key]=magCap(s,key); s.modes[key]=0; } } equip(s,0,true); }
 
-function cycleWeapon(s){ for(let k=1;k<=3;k++){ const n=(s.slot+k)%3; if(s.inv[n]){ if(n!==s.slot) equip(s,n); return; } } }
+function cycleWeapon(s){ if(s.mounted) return; for(let k=1;k<=3;k++){ const n=(s.slot+k)%3; if(s.inv[n]){ if(n!==s.slot) equip(s,n); return; } } }
+// nothing in any slot: fists
+function ensureArmed(s){ if(s.inv[s.slot]) return; for(let k=0;k<3;k++) if(s.inv[k]){ equip(s,k,true); return; } s.wpn='fists'; s.slot=2; s.inv[2]=null; setHoldSafe(s); }
+function setHoldSafe(s){ const u=s.mesh.userData, yaw=s.mesh.rotation.y, rx=s.mesh.rotation.x, p=s.mesh.position.clone(); s.mesh.rotation.set(0,0,0); s.mesh.position.set(0,0,0); u.W.position.set(0,0,0); u.W.rotation.set(0,0,0);
+  u.torso.position.set(0,0.86,0); u.torso.rotation.set(0,0,0); setHold(s); s.mesh.position.copy(p); s.mesh.rotation.set(rx,yaw,0); }
 function cycleMode(s){ const W=WPN[s.wpn]; if(!W.modes||W.modes.length<2) return; s.modes[s.wpn]=(s.modes[s.wpn]+1)%W.modes.length; if(AC) SFX.click(0,0.4); }
 function modeOf(s){ const W=WPN[s.wpn]; return W.melee?'':W.modes[s.modes[s.wpn]||0]; }
+// N: thread the can from your pack onto this gun, or take it off and stow it
 function toggleSupp(s){
   const W=WPN[s.wpn]; if(!W.supp){ radioLine('Nothing to thread a can onto.'); return; }
-  if(s.supp[s.wpn]){ s.supp[s.wpn]=false; spareSupp++; }
-  else if(spareSupp>0){ s.supp[s.wpn]=true; spareSupp--; }
-  else { radioLine('No suppressor in the kit.'); return; }
-  equip(s,s.slot,true); if(AC) SFX.click(0,0.4);
+  const m=modsOf(s);
+  if(m.supp){ const it=mkItem('supp'); if(!autoPlace(s.pack,it)){ radioLine('No room in the pack for the can.'); return; } m.supp=false; }
+  else { const it=s.pack.items.find(i=>i.key==='supp'); if(!it){ radioLine('No suppressor in the pack.'); return; } removeItem(s.pack,it); m.supp=true; }
+  refreshWeapon(s); if(AC) SFX.click(0,0.4);
 }
+// rebuild the model after a mod change without the draw delay
+function refreshWeapon(s){ s.mags[s.wpn]=Math.min(s.mags[s.wpn]||0,magCap(s)); setHoldSafe(s); }
 
 /* ---------- firing ---------- */
 const flashSm=[];
@@ -99,7 +120,7 @@ function muzzlePos(s,W){ const a=s.ang, r=Math.cos(a), rz=-Math.sin(a), side=W.h
   return {x:s.x+Math.sin(a)*W.muz*1.2+r*side, z:s.z+Math.cos(a)*W.muz*1.2+rz*side}; }
 const _hits=[];
 function fire(s,ang,targetJ){
-  const W=WPN[s.wpn], isMe=s.i===me, supp=!!s.supp[s.wpn];
+  const W=WPN[s.wpn], isMe=s.i===me, supp=hasMod(s,'supp'), grip=hasMod(s,'grip'), scope=hasMod(s,'scope');
   s.mags[s.wpn]--; s.recoil=Math.min(1.6,0.6+W.kick*2);
   const mode=modeOf(s);
   s.fireCD=(mode==='SEMI'&&W.semi)?W.semi:W.rof;
@@ -113,14 +134,14 @@ function fire(s,ang,targetJ){
   // where the round goes: player aim wanders with movement, bloom and nerves; buddies roll their skill
   let a=ang;
   const moving=Math.hypot(s.vx,s.vz)>0.5;
-  if(isMe){ const sp=(W.spread+(moving?W.move:0)+s.bloom+s.stress*0.0006)*(s.sneak&&!moving?0.7:1); a=ang+randn()*sp; }
+  if(isMe){ const sp=(W.spread+(moving?W.move*(grip?0.75:1):0)+s.bloom+s.stress*0.0006)*(s.sneak&&!moving?0.7:1)*(scope&&!moving?0.6:1); a=ang+randn()*sp; }
   else if(targetJ>=0){ const d=Math.hypot(zx[targetJ]-M.x,zz[targetJ]-M.z); const chance=clamp(s.acc+(W.key==='m24'?0.15:0)-s.stress*0.003-d*0.008*(W.key==='m24'?0.3:1),0.12,0.95);
     a=Math.atan2(zx[targetJ]-M.x,zz[targetJ]-M.z)+(Math.random()<chance?randn()*W.spread:rand(.05,.12)*(Math.random()<.5?-1:1)); }
-  s.bloom=Math.min(W.bloomMax,s.bloom+W.bloom);
+  s.bloom=Math.min(W.bloomMax,s.bloom+W.bloom*(grip?0.65:1));
   const n=W.pellets||1;
   for(let k=0;k<n;k++) shootRay(s,n>1?a+randn()*W.cone:a,W,M,k<3||n===1);
   flashAt(M.x,M.z,y,supp?0.25:1);
-  if(isMe){ G.shake=Math.max(G.shake,W.shake*(supp?0.7:1)); G.kickX-=Math.sin(ang)*W.kick; G.kickZ-=Math.cos(ang)*W.kick; }
+  if(isMe){ const kk=W.kick*(grip?0.65:1); G.shake=Math.max(G.shake,W.shake*(supp?0.7:1)*(grip?0.8:1)); G.kickX-=Math.sin(ang)*kk; G.kickZ-=Math.cos(ang)*kk; }
   const ps=squad[me]; sGun(Math.hypot(s.x-ps.x,s.z-ps.z),W.snd,supp,clamp((s.x-ps.x)/20,-1,1));
   makeNoise(s.x,s.z,W.noise*(supp?0.28:1),L);
   s.loudT=2.5;
@@ -142,10 +163,10 @@ function shootRay(s,a,W,M,showTracer){
     const dx=zx[j]-M.x, dz=zz[j]-M.z, t=dx*fx_+dz*fz_; if(t<-0.3||t>wallT) continue;
     const lat=Math.abs(dx*fz_-dz*fx_); if(lat<(zvar[j]===3?0.35:0.45)*zsc[j]) _hits.push(Math.max(0,Math.round(t*100))*1000+j); }
   _hits.sort((p,q)=>p-q);
-  let dmg=W.dmg*(s.supp[W.key]?0.92:1)*(passed.length?0.7:1), left=(W.pen||0)+1, endT=wallT, stopped=false;
+  let dmg=W.dmg*(hasMod(s,'supp',W.key)?0.92:1)*(passed.length?0.7:1), left=(W.pen||0)+1, endT=wallT, stopped=false;
   for(const h of _hits){ if(left<=0) break; const j=h%1000, t=(h-j)/100000;
     const fall=W.pellets?clamp(1-t/R*0.75,0.25,1):1;
-    const crit=Math.random()<W.crit*(s.i===me?1.1:1)*(W.pellets?0.3:1);
+    const crit=Math.random()<(W.crit+(hasMod(s,'scope',W.key)?0.06:0))*(s.i===me?1.1:1)*(W.pellets?0.3:1);
     damageZ(j,crit?Math.max(200,W.dmg*2.5):dmg*fall,s.x,s.z,W.knock*fall);
     dmg*=0.65; left--; endT=t; if(left<=0) stopped=true;
   }
@@ -157,7 +178,7 @@ function shootRay(s,a,W,M,showTracer){
 /* ---------- reloads: animated and interruptible ---------- */
 function reload(s){
   const W=WPN[s.wpn]; if(W.melee||s.reloadT>0||s.drawT>0) return false;
-  if(s.mags[s.wpn]>=W.mag) return false;
+  if(s.mags[s.wpn]>=magCap(s)) return false;
   if(AMMO[W.ammo]<=0){ if(s.i===me) radioLine('Out of '+AMMO_NAME[W.ammo]+'.'); return false; }
   s.reloadW=s.wpn; s.reloadT=s.reloadMax=W.shell||W.reload; s.magOut=false;
   if(s.i===me&&AC) SFX.click(0,0.35);
@@ -174,11 +195,12 @@ function stepReload(s,dt){
   if(s.reloadT>0) return;
   if(W.shell){
     if(W.key==='rev'&&s.mags.rev===0&&!s.magOut){ s.magOut=true; for(let k=0;k<6;k++) eject(s); }
-    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<W.mag){ s.mags[s.reloadW]++; AMMO[W.ammo]--; if(AC) SFX.click(pan,vol); }
-    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<W.mag){ s.reloadT=s.reloadMax=W.shell; }
+    const cap=magCap(s,s.reloadW);
+    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<cap){ s.mags[s.reloadW]++; AMMO[W.ammo]--; if(AC) SFX.click(pan,vol); }
+    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<cap){ s.reloadT=s.reloadMax=W.shell; }
     else { s.reloadT=0; if(AC) SFX.rack(pan,vol); }
   } else {
-    const take=Math.min(W.mag-s.mags[s.reloadW],AMMO[W.ammo]); s.mags[s.reloadW]+=take; AMMO[W.ammo]-=take; s.reloadT=0;
+    const take=Math.min(magCap(s,s.reloadW)-s.mags[s.reloadW],AMMO[W.ammo]); s.mags[s.reloadW]+=take; AMMO[W.ammo]-=take; s.reloadT=0;
     if(AC) SFX.rack(pan,vol);
   }
 }
@@ -486,7 +508,7 @@ function updateLaser(){
   const s=squad[me], W=WPN[s.wpn];
   const show=s.alive&&!W.melee&&!s.sprint&&!s.dodge&&!s.vault&&s.reloadT<=0&&s.drawT<=0&&G.started&&!G.mapOpen;
   laser.visible=show; laserDot.visible=show; if(!show) return;
-  const M=muzzlePos(s,W), fx_=Math.sin(s.ang), fz_=Math.cos(s.ang), R=Math.min(W.range,48);
+  const M=muzzlePos(s,W), fx_=Math.sin(s.ang), fz_=Math.cos(s.ang), R=Math.min(W.range,hasMod(s,'scope')?60:48);
   const H=gridRay(s.L,M.x,M.z,M.x+fx_*R,M.z+fz_*R,(e)=>SHOTB[ED.t[e]]===1);
   let t=H.t*R;
   for(let j=0;j<MAXZ;j++){ if(!zst[j]||zst[j]===5||!shootable(s.L,j)) continue; const dx=zx[j]-M.x, dz=zz[j]-M.z, tt=dx*fx_+dz*fz_; if(tt<0||tt>t) continue; if(Math.abs(dx*fz_-dz*fx_)<0.35) t=tt; }
@@ -496,50 +518,3 @@ function updateLaser(){
   laser.material.opacity=G.phase==='day'?0.25:0.45;
 }
 
-/* ---------- things on the ground ---------- */
-const items=[];
-const matAmmoBox=phong({color:0x4a4d34}), matAmmoTag=phong({color:0xb0a070});
-function findSpot(L,x,z){
-  for(let r=0;r<6;r++) for(let dz=-r;dz<=r;dz++) for(let dx=-r;dx<=r;dx++){ if(Math.max(Math.abs(dx),Math.abs(dz))!==r) continue;
-    const cx=Math.floor(x)+dx, cz=Math.floor(z)+dz; if(cellWalk(L,cx,cz)) return {x:cx+0.5,z:cz+0.5}; }
-  return null;
-}
-function itemMesh(it){
-  const g=new THREE.Group();
-  if(it.kind==='wpn'){ const m=buildGun(it.key,false,false); m.rotation.set(0,0,Math.PI/2); m.position.y=0.05; g.add(m); g.scale.setScalar(1.2); }
-  else if(it.kind==='ammo'){ gbox(g,0.36,0.18,0.22,matAmmoBox,0,0.09,0); gbox(g,0.37,0.04,0.12,matAmmoTag,0,0.12,0); }
-  else if(it.kind==='thr'){ for(let k=0;k<Math.min(3,it.n);k++){ const m=new THREE.Mesh(projGeo[it.key],it.key==='frag'?matFrag:it.key==='molotov'?matBottle:matDecoy); m.position.set(k*0.16-0.16,it.key==='molotov'?0.13:0.08,0); g.add(m); } }
-  else if(it.kind==='supp'){ const m=gbox(g,0.06,0.06,0.22,matGun,0,0.04,0); }
-  g.position.set(it.x,it.L*LH,it.z); g.rotation.y=it.rot||0; onCharLayer(g); scene.add(g); it.m=g;
-}
-function dropItem(kind,key,n,x,z,L,mag){ const it={kind,key,n,x,z,L,mag,rot:rand(0,6)}; itemMesh(it); items.push(it); return it; }
-function placeItem(kind,key,n,L,x,z){ const p=findSpot(L,x,z); if(p) return dropItem(kind,key,n,p.x,p.z,L); }
-function itemName(it){ return it.kind==='wpn'?WPN[it.key].name:it.kind==='ammo'?(it.n+' × '+AMMO_NAME[it.key]):it.kind==='thr'?(it.n+' × '+THR_NAME[it.key]):'SUPPRESSOR'; }
-function nearestItem(s,r){ let best=null, bd=r; for(const it of items){ if(it.L!==s.L) continue; const d=Math.hypot(it.x-s.x,it.z-s.z); if(d<bd){ bd=d; best=it; } } return best; }
-function pickUp(s,it){
-  items.splice(items.indexOf(it),1); scene.remove(it.m);
-  if(it.kind==='ammo') AMMO[it.key]+=it.n;
-  else if(it.kind==='thr') THR[it.key]+=it.n;
-  else if(it.kind==='supp') spareSupp++;
-  else if(it.kind==='wpn'){
-    const W=WPN[it.key], old=s.inv[W.slot];
-    if(old){ const o=dropItem('wpn',old,1,s.x+rand(-.3,.3),s.z+rand(-.3,.3),s.L,s.mags[old]); }
-    s.inv[W.slot]=it.key; s.mags[it.key]=it.mag!==undefined?it.mag:(W.melee?0:Math.min(W.mag,Math.floor(W.mag*0.5)));
-    if(old&&s.supp[old]){ s.supp[old]=false; spareSupp++; }
-    equip(s,W.slot);
-  }
-  radioLine('Picked up '+itemName(it).toLowerCase()+'.');
-  if(AC) SFX.click(0,0.4);
-}
-// a few things worth finding, fixed for now (proper loot comes with scavenging)
-{
-  placeItem('wpn','axe',1,0,-31.5,8.5);                 // the hardware store's fire axe
-  placeItem('ammo','556',90,0,4.5,10.8);                // what the army left on the stretcher
-  placeItem('thr','frag',2,0,-9.4,-4.2);
-  placeItem('wpn','rev',1,0,92,-80); placeItem('ammo','357',18,0,93,-80); placeItem('supp','9mm',1,0,94,-81);
-  placeItem('ammo','12g',16,0,-101.5,-15);              // gas station
-  placeItem('thr','molotov',2,0,-24,-80);               // mercado
-  let best=null, bd=1e9;
-  for(const B of MAP.blds){ if(!B.enter||B.kind!=='flat'||B.floors<2) continue; const d=Math.hypot((B.x0+B.x1)/2+40,(B.z0+B.z1)/2-40); if(d<bd){ bd=d; best=B; } }
-  if(best){ placeItem('wpn','r22',1,1,(best.x0+best.x1)/2,(best.z0+best.z1)/2); placeItem('ammo','22',50,1,(best.x0+best.x1)/2+1,(best.z0+best.z1)/2); }
-}

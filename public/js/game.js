@@ -36,16 +36,15 @@ function despawnAll(onlyCalm){
   for(let i=0;i<MAXZ;i++){ if(!zst[i]) continue; if(onlyCalm&&zst[i]===3) continue; killZ(i,false); }
 }
 function startDay(){
-  G.phase='day'; G.t=G.night===1?35:28; setFogTarget('day'); for(const f of flares){ f.on=false; f.m.visible=false; }
+  G.phase='day'; G.t=10.5*HOUR; setFogTarget('day'); for(const f of flares){ f.on=false; f.m.visible=false; }
   despawnAll(false);
   if(G.night>1){
     let found=0;
-    for(const s of squad){ if(!s.alive) continue; s.hp=Math.min(100,s.hp+35); s.stress*=0.3; found+=45; }
-    AMMO['556']+=found; AMMO['9mm']+=15;
-    bannerShow('DAY '+G.night,'The fog thinned out. The squad is fixing the line.');
-    radio('Pulled '+found+' rounds of 5.56 out of the bus wreck.');
+    for(const s of squad){ if(!s.alive) continue; s.hp=Math.min(100,s.hp+(BASEUP.stove?25:15)); s.stress*=0.4; }
+    bannerShow('DAY '+G.night,'The fog thinned out. Eat, fix the line, go find what we need.');
+    dailyUpkeep();
   } else {
-    bannerShow('DAY 1','Wolcott & 18th. Build the line before dark.',4);
+    bannerShow('DAY 1','Wolcott & 18th. Food for a few days. Find more before dark.',4);
   }
   // a few dead wander the neighborhood by day
   for(let k=0;k<26;k++){ const p=randomStreetSpot(40); if(p) spawnZ(p.x,p.z,4,0,0); }
@@ -105,7 +104,7 @@ function spawnZ(x,z,state,ox,oz,L){
 }
 function killZ(i,corpse=true){
   if(!corpse||zst[i]===5){ zst[i]=0; ztr[i]=null; hideZ(i); return; }
-  G.kills++;
+  G.kills++; corpseDrop(i);
   zst[i]=5; zdie[i]=0; ztr[i]=null;
   if(!zdx[i]&&!zdz[i]){ zdx[i]=Math.sin(zang[i]+Math.PI); zdz[i]=Math.cos(zang[i]+Math.PI); }
   const fwd=Math.sin(zang[i])*zdx[i]+Math.cos(zang[i])*zdz[i];
@@ -223,7 +222,7 @@ const keys={}; let mouseX=innerWidth/2, mouseY=innerHeight/3, mouseDown=false, t
 const ray=new THREE.Raycaster(), groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-1.2), hitV=new THREE.Vector3(), ndc=new THREE.Vector2();
 // every action and its keys (rebinding comes with the settings menu)
 const BIND={up:['w','arrowup'],down:['s','arrowdown'],left:['a','arrowleft'],right:['d','arrowright'],sprint:['shift'],sneak:['c'],dodge:[' '],
-  reload:['r'],shove:['v'],weapon:['x'],mode:['b'],supp:['n'],throw:['g'],thrNext:['t'],use:['e'],light:['f'],
+  reload:['r'],inv:['tab','i'],build:['k'],shove:['v'],weapon:['x'],mode:['b'],supp:['n'],throw:['g'],thrNext:['t'],use:['e'],light:['f'],
   hold:['1'],follow:['2'],fallback:['3'],quiet:['4'],lines:['l'],swap:['q'],map:['m'],zoom:['z'],endDay:['enter'],keys:['h'],pixel:['p']};
 const KEY2ACT={}; for(const a in BIND) for(const k of BIND[a]) KEY2ACT[k]=a;
 function keyDown(a){ for(const k of BIND[a]) if(keys[k]) return true; return false; }
@@ -235,6 +234,18 @@ function aimPoint(s,h){
   return {x:s.x+Math.sin(s.ang)*8,z:s.z+Math.cos(s.ang)*8};
 }
 let throwAiming=false;
+// E: whatever is closest and makes sense, in this order
+function useKey(s){
+  if(wsOpen){ wsToggle(); return; }
+  if(INV.open){ invClose(); return; }
+  if(s.mounted){ dismount(s); return; }
+  const g=nearestItem(s,1.6); if(g){ pickUp(s,g); return; }
+  const n=nearestNest(s); if(n&&!n.manned){ mount(s,n); return; }
+  const wb=nearestFurn(s,f=>f.workbench,1.0); if(wb){ wsToggle(); return; }
+  const st=nearestFurn(s,f=>f.stash,1.0); if(st){ invOpen('stash',stash); return; }
+  const c=nearestContainer(s); if(c){ invOpen('container',c); return; }
+  if(!nearDamagedSeg(s)){ const e=nearestDoor(s.L,s.x,s.z,1.6); if(e) toggleDoor(e); }
+}
 function act(a,up){
   const s=squad[me];
   if(up){ if(a==='throw'&&throwAiming){ throwAiming=false; if(s.alive) throwIt(s,THR_ORDER[thrSel]); } return; }
@@ -246,8 +257,9 @@ function act(a,up){
   else if(a==='reload') reload(s);
   else if(a==='shove') shove(s);
   else if(a==='light') s.lightOn=!s.lightOn;
-  else if(a==='use'){ const it=nearestItem(s,1.6); if(it){ pickUp(s,it); return; }
-    if(!nearDamagedSeg(s)){ const e=nearestDoor(s.L,s.x,s.z,1.6); if(e) toggleDoor(e); } }
+  else if(a==='use') useKey(s);
+  else if(a==='inv'){ if(wsOpen) wsToggle(); invToggle(); }
+  else if(a==='build'){ if(s.mounted) return; buildToggle(); }
   else if(a==='weapon') cycleWeapon(s);
   else if(a==='mode') cycleMode(s);
   else if(a==='supp') toggleSupp(s);
@@ -269,9 +281,15 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k===' '||k==='tab') e.preventDefault();
   if(keys[k]) return; keys[k]=true;
-  if(k==='escape'){ if(G.mapOpen){ act('map'); return; } G.paused=!G.paused; bannerShow(G.paused?'PAUSED':'', G.paused?'Esc to resume':'',G.paused?9999:0.1); return;}
+  if(k==='escape'){ if(G.mapOpen){ act('map'); return; } if(INV.open){ invClose(); return; } if(wsOpen){ wsToggle(); return; } if(BUILD.on){ buildToggle(); return; }
+    G.paused=!G.paused; bannerShow(G.paused?'PAUSED':'', G.paused?'Esc to resume':'',G.paused?9999:0.1); return;}
   if(G.paused) return;
-  const a=KEY2ACT[k]; if(a) act(a);
+  const a=KEY2ACT[k];
+  // with a screen open, only movement and closing it
+  if(INV.open||wsOpen){ if(a==='inv'||a==='use') act(a); return; }
+  if(BUILD.on){ if(k>='1'&&k<='9'){ buildSelect(+k-1); return; } if(k==='r'){ BUILD.rot=!BUILD.rot; return; } if(a==='build'){ act(a); return; }
+    if(['up','down','left','right','sprint','sneak','map','zoom','light','keys','lines'].includes(a)) act(a); return; }
+  if(a) act(a);
 });
 addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); keys[k]=false; const a=KEY2ACT[k]; if(a&&G.started) act(a,true); });
 addEventListener('blur',()=>{for(const k in keys) keys[k]=false; mouseDown=false; throwAiming=false;});
@@ -287,6 +305,7 @@ glCanvas.addEventListener('pointerdown',e=>{
     if(e.clientX<innerWidth/2){ if(!sticks.move) sticks.move=st; } else { if(!sticks.aim) sticks.aim=st; }
     return;
   }
+  if(BUILD.on){ if(e.button===2) buildRightClick(); else buildClick(); return; }
   if(e.button===2) shove(squad[me]); else { mouseDown=true; squad[me].trig=true; }
 });
 addEventListener('pointermove',e=>{
@@ -315,8 +334,12 @@ function swap(){
 function segAt(x,z,pad){ for(const s of segs){ if(!s.alive) continue; if(x>s.x0-pad&&x<s.x1+pad&&z>s.z0-pad&&z<s.z1+pad) return s; } return null; }
 function setSegAlive(s,alive){ s.alive=alive; s.mesh.visible=alive; lineCells(s,alive); }
 function nearDamagedSeg(s){ if(s.L!==0) return null; for(const g of segs){ if(g.hp>=g.max) continue; const cx=clamp(s.x,g.x0,g.x1), d=Math.hypot(s.x-cx,s.z-BZ); if(d<3.2) return g; } return null; }
+let repairScrap=0;
 function repairNear(s,amount,noisy){
   const best=nearDamagedSeg(s); if(!best) return false;
+  // scrap goes into the line: one per 30 points
+  if(SUP.scrap<=0){ if(s.i===me) radioLine('Out of scrap to fix the line with.'); return false; }
+  repairScrap+=amount/30; while(repairScrap>=1){ repairScrap-=1; SUP.scrap=Math.max(0,SUP.scrap-1); }
   best.hp=Math.min(best.max,best.hp+amount); if(!best.alive&&best.hp>best.max*0.25) setSegAlive(best,true);
   if(noisy){ G._ham=(G._ham||0)+amount; if(G._ham>40){G._ham=0; makeNoise(s.x,s.z,16); sThud(0.25);} }
   return true;
@@ -366,8 +389,12 @@ function updatePlayer(s,dt){
     if(firing&&!sticks.aim) firing=false;
   } else if(s.actT<=0){ const p=aimPoint(s,1.2); s.ang=Math.atan2(p.x-s.x,p.z-s.z); }
   if(s.vault){ stepVault(s,dt); s.status='VAULT'; return; }
+  if(s.mounted){ stepMounted(s,dt); const W=WPN.m240;
+    if(firing&&!G.mapOpen&&!INV.open&&s.reloadT<=0&&s.fireCD<=0){ if(s.mags.m240>0) fire(s,s.ang,-1); else if(s.trig){ s.trig=false; if(!reload(s)&&AC) SFX.click(0,0.4); } }
+    if(!mouseDown) s.trig=true; s.status='ON THE GUN'; return; }
   if(s.dodge){ stepDodge(s,dt); s.status='DODGE'; return; }
   // sprint: fast, loud, gun down, burns stamina
+  if(BUILD.on||INV.open||wsOpen) firing=false;
   const wantSprint=keyDown('sprint')&&ml>0.2&&!firing&&!throwAiming&&s.actT<=0;
   if(wantSprint&&!s.sprint&&s.stam>20){ s.sprint=true; s.sneak=false; cancelReload(s); }
   if(s.sprint&&(!wantSprint||s.stam<=0)) s.sprint=false;
@@ -408,7 +435,7 @@ function updateBuddy(s,dt){
   let fixing=false;
   if(G.phase==='day'&&G.order==='hold'){
     let worst=null; for(const g of segs) if(g.hp<g.max&&(!worst||g.hp/g.max<worst.hp/worst.max)) worst=g;
-    if(worst){ gx=clamp((worst.x0+worst.x1)/2+(s.i-1.5)*0.8,worst.x0+0.5,worst.x1-0.5); gz=BZ+1.6; gL=0; fixing=true; }
+    if(worst&&SUP.scrap>0){ gx=clamp((worst.x0+worst.x1)/2+(s.i-1.5)*0.8,worst.x0+0.5,worst.x1-0.5); gz=BZ+1.6; gL=0; fixing=true; }
   }
   // follow the player into quiet: sneak when they sneak
   s.sneak=G.order==='follow'&&p.sneak;
@@ -416,6 +443,7 @@ function updateBuddy(s,dt){
   if(s.actT<=0) navTo(s,gx,gz,gL,s.sneak?1.9:d>6?4.4:3.2,dt); else { s.vx*=0.8; s.vz*=0.8; }
   footsteps(s,dt);
   if(fixing&&d<1.6) repairNear(s,40*dt,false);
+  autoHeal(s);
   const W=WPN[s.wpn];
   // out of ammo for this gun: go to the next one that has some
   if(!W.melee&&s.mags[s.wpn]<=0&&AMMO[W.ammo]<=0&&s.reloadT<=0){ for(let k=0;k<3;k++){ const kk=s.inv[k]; if(kk&&kk!==s.wpn&&(WPN[kk].melee||s.mags[kk]>0||AMMO[WPN[kk].ammo]>0)){ equip(s,k); break; } } }
@@ -520,7 +548,11 @@ function updateZombies(dt){
     eachNear(x,z,1,j=>{ if(j===i||zl[j]!==L) return; const ex=x-zx[j], ez=z-zz[j], d2=ex*ex+ez*ez; if(d2<0.5&&d2>1e-6){ const d=Math.sqrt(d2), k=(0.71-d)/d; sx+=ex*k; sz+=ez*k; } });
     mvx+=sx*0.5; mvz+=sz*0.5;
     for(const s of squad){ if(!s.alive||s.L!==L) continue; const ex=x+mvx-s.x, ez=z+mvz-s.z, d2=ex*ex+ez*ez; if(d2<0.5&&d2>1e-6){const d=Math.sqrt(d2),k=(0.71-d)/d; mvx+=ex*k; mvz+=ez*k;} }
+    { const tk=stepTraps(i,dt); if(!zst[i]||zst[i]===5) continue; mvx*=tk; mvz*=tk; }
+    const ox0=zA.x, oz0=zA.z;
     const hit=moveAgent(zA,mvx,mvz,0.3,AG.ZOMBIE);
+    // blocked by something the squad built: tear at it
+    if((cs===3||cs===2)&&!zA.trav){ const want=Math.hypot(mvx,mvz); if(want>1e-4&&Math.hypot(zA.x-ox0,zA.z-oz0)<want*0.4) bashBuilt(i,L,zA.x,zA.z,dx,dz,dt,nightMul); }
     if(L===0&&!zA.trav) pushCircles(zA,0.3);
     let nx=zA.x, nz=zA.z;
     // pressing against a door, window, boards or a fence it wants through: bash it, or climb a broken window
@@ -646,7 +678,7 @@ function updateHUD(){
   for(const s of squad) if(s.alive) applyWear(s);
   const nightEl=document.getElementById('night'), phaseEl=document.getElementById('phase'), hordeEl=document.getElementById('horde');
   nightEl.textContent=(G.phase==='day'?'DAY ':'NIGHT ')+G.night;
-  if(G.phase==='day') phaseEl.textContent='Fog thin · '+Math.ceil(G.t)+'s of light left';
+  if(G.phase==='day'){ const h=Math.floor(G.t/HOUR), m=Math.floor((G.t%HOUR)/HOUR*60); phaseEl.textContent='Fog thin · '+h+'h '+String(m).padStart(2,'0')+'m of light left'; }
   else if(G.phase==='dusk') phaseEl.textContent='Fog rolling in';
   else if(G.phase==='night') phaseEl.textContent='Fog thick';
   else phaseEl.textContent='Fog lifting';
@@ -663,16 +695,18 @@ function updateHUD(){
   } else if(G.phase==='day') hordeTxt='Horde: gone for now';
   hordeEl.textContent=hordeTxt; hordeEl.classList.toggle('hot',hot);
   document.getElementById('where').textContent=whereIs(squad[me]);
+  document.getElementById('supplies').textContent='FOOD '+SUP.food+' · WATER '+SUP.water+' · FUEL '+SUP.fuel+' · SCRAP '+SUP.scrap;
+  if(BUILD.on&&Math.random()<0.3) renderBuildBar();
   document.getElementById('noiseBar').style.width=(G.noise*100).toFixed(0)+'%';
   { const s=squad[me], W=WPN[s.wpn], el=id=>document.getElementById(id);
-    const tags=[]; if(s.supp[s.wpn]) tags.push('SUPP'); if(s.bay&&s.wpn==='m4') tags.push('BAYONET');
+    const tags=[]; for(const m of ['supp','scope','ext','grip']) if(hasMod(s,m)) tags.push(m==='supp'?'SUPP':m==='ext'?'EXT':m.toUpperCase()); if(s.bay&&s.wpn==='m4') tags.push('BAYONET');
     el('stance').textContent=[s.sprint?'SPRINTING':'',s.sneak?'SNEAKING':'',s.hiding?'HIDDEN':''].filter(Boolean).join(' · ');
     el('wName').textContent=W.name; el('wTags').textContent=tags.join(' ');
     const mg=el('wMag');
     if(W.melee){ mg.textContent='—'; mg.className=''; el('wPool').textContent=s.inv[0]||s.inv[1]?'X to draw a gun':''; el('wMode').textContent='MELEE'; }
-    else { const m=s.mags[s.wpn]; mg.textContent=m; mg.className=m===0?'out':m<=W.mag*0.25?'low':''; el('wPool').textContent='/ '+AMMO[W.ammo]+' '+AMMO_NAME[W.ammo]; el('wMode').textContent=modeOf(s); }
+    else { const m=s.mags[s.wpn]; mg.textContent=m; mg.className=m===0?'out':m<=magCap(s)*0.25?'low':''; el('wPool').textContent='/ '+AMMO[W.ammo]+' '+AMMO_NAME[W.ammo]; el('wMode').textContent=modeOf(s); }
     el('wRel').style.width=(s.reloadT>0?(1-s.reloadT/s.reloadMax)*100:0)+'%';
-    el('wThr').innerHTML=THR_ORDER.map((k,i)=>`<span class="${i===thrSel?'on':''}">${THR_NAME[k]} ${THR[k]}</span>`).join('')+(spareSupp?`<span>CAN ${spareSupp}</span>`:'');
+    el('wThr').innerHTML=THR_ORDER.map((k,i)=>`<span class="${i===thrSel?'on':''}">${THR_NAME[k]} ${THR[k]}</span>`).join('');
     el('wStam').style.width=s.stam.toFixed(0)+'%'; el('wStam').style.background=s.stam<20?'var(--warn)':''; }
   squad.forEach((s,k)=>{
     const c=cards[k];
@@ -704,6 +738,8 @@ function drawMapBase(){
     if(b>=0){ const B=MAP.blds[b]; col=B.enter?(KC[B.kind]||hex('#6a5c50')):hex('#1a1b1d'); }
     else col=hex(MM_COL[MAP.surf[0][c]]||'#2a2a2a');
     if(MAP.block[0][c]===BLK.PROP) col=hex('#4a3e34');
+    else if(MAP.block[0][c]===BLK.BUILT) col=hex('#b0a070');
+    else if(trapGrid[0][c]>=0) col=hex('#7a6040');
     d[o]=col[0]; d[o+1]=col[1]; d[o+2]=col[2]; d[o+3]=255;
   }
   // doors and broken things
@@ -794,6 +830,16 @@ function drawFX(dt,time){
     fctx.font=(11*DPR)+'px "IBM Plex Mono", monospace';
     if(it){ tagV.set(it.x,it.L*LH+0.6,it.z).project(camera); const X=(tagV.x*0.5+0.5)*FW, Y=(-tagV.y*0.5+0.5)*FH, t='E · '+itemName(it);
       fctx.lineWidth=3*DPR; fctx.strokeStyle='rgba(10,11,8,.8)'; fctx.strokeText(t,X,Y); fctx.fillStyle='#f0e6b8'; fctx.fillText(t,X,Y); }
+    else if(!INV.open&&!wsOpen&&(()=>{ const n=nearestNest(pp), wb=nearestFurn(pp,f=>f.workbench,1.0), st=nearestFurn(pp,f=>f.stash,1.0), c=(n||wb||st)?null:nearestContainer(pp);
+      let t='', x=0, y=0, z=0;
+      if(pp.mounted){ t='E · LEAVE THE GUN'; x=pp.x; z=pp.z; y=pp.y+2.4; }
+      else if(n&&!n.manned){ const g=mgSpot(n); t='E · MAN THE GUN'; x=g.x; z=g.z; y=pp.y+1.6; }
+      else if(wb){ t='E · WORKBENCH'; x=(wb.x0+wb.x1)/2; z=(wb.z0+wb.z1)/2; y=wb.L*LH+1.4; }
+      else if(st){ t='E · STASH'; x=(st.x0+st.x1)/2; z=(st.z0+st.z1)/2; y=st.L*LH+1.4; }
+      else if(c){ t='E · '+(c.rolled&&!c.grid.items.length?'EMPTY ':'')+(c.rolled?'':'SEARCH ')+(CNAME[c.kind]||'CONTAINER'); x=c.x; z=c.z; y=c.L*LH+(c.f.h||1)+0.4; }
+      if(!t) return false;
+      tagV.set(x,y,z).project(camera); const X=(tagV.x*0.5+0.5)*FW, Y=(-tagV.y*0.5+0.5)*FH;
+      fctx.lineWidth=3*DPR; fctx.strokeStyle='rgba(10,11,8,.8)'; fctx.strokeText(t,X,Y); fctx.fillStyle='#f0e6b8'; fctx.fillText(t,X,Y); return true; })()){}
     else if(pp.actT<=0){ const j=frontZombie(pp,1.6,0.5,j=>unaware(j,pp));
       if(j>=0){ tagV.set(zx[j],zyv[j]+2.3,zz[j]).project(camera); const X=(tagV.x*0.5+0.5)*FW, Y=(-tagV.y*0.5+0.5)*FH, t='V · QUIET KILL';
         fctx.lineWidth=3*DPR; fctx.strokeStyle='rgba(10,11,8,.8)'; fctx.strokeText(t,X,Y); fctx.fillStyle='#d8893c'; fctx.fillText(t,X,Y); } }
@@ -832,7 +878,7 @@ function stepSim(dt){
     }
     G.noise=Math.max(0,G.noise-dt*0.35);
     hurtFlash=Math.max(0,hurtFlash-dt);
-    updateProj(dt); updateFires(dt);
+    updateProj(dt); updateFires(dt); updateStructs(dt); updateInv(dt);
     updateBlood(dt); updateGibs(dt); updateChips(dt); updateBrass(dt); updateDoors(dt);
     for(const g of segs) updateSegVisual(g);
     updateBirds(dt,time); updateRats(dt,squad[me]); updatePapers(dt,squad[me]); updateAmbience(dt,squad[me]);
@@ -943,7 +989,7 @@ function frame(now){
   const kx=sx_+G.kickX*0.5, kz=sz_+G.kickZ*0.5;
   camera.position.set(cx+kx,cy,cz+CAM_BACK+kz); camera.lookAt(cx+kx,p.y,cz-1+kz);
   lowHealth(p,dt||0.016);
-  updateLaser();
+  updateLaser(); updateBuild();
   updateCuts(p);
   ring.position.set(p.x,p.y+0.06,p.z);
   moon.target.position.set(cx,0,cz); moon.position.set(cx+sunOff.x,sunOff.y,cz+sunOff.z);

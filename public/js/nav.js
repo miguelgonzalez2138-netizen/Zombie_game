@@ -146,6 +146,7 @@ function cellPen(L,c,mode){
   const b=MAP.block[L][c];
   if(b===BLK.FREE) return 0;
   if(b===BLK.LINE) return mode?160:14;
+  if(b===5) return mode?200:-1;
   return -1;
 }
 class FlowField{
@@ -163,7 +164,7 @@ const EDT=ED.t;
 const linkFlag=[]; for(let L=0;L<NL;L++) linkFlag.push(new Uint8Array(GN));
 for(const k of MAP.links.keys()){ const L=(k/GN)|0; linkFlag[L][k-L*GN]=1; }
 // cell cost: -1 blocked, else extra cost (barricade cells are slow to get through)
-function cpen(fl,bl,c,mode){ if(!fl[c]) return -1; const b=bl[c]; if(b===0) return 0; if(b===BLK.LINE) return mode?160:14; return -1; }
+function cpen(fl,bl,c,mode){ if(!fl[c]) return -1; const b=bl[c]; if(b===0) return 0; if(b===BLK.LINE) return mode?160:14; if(b===5) return mode?200:-1; return -1; }
 const eo=(e)=>e===0||OPEN_T[EDT[e]]===1;
 function buildField(F,srcs,mode,maxCost){
   const c0=srcs[0]; F.ox=c0[1]-F.R; F.oz=c0[2]-F.R; F.d.fill(65535); F.mode=mode; F.valid=true;

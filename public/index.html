@@ -20,6 +20,7 @@
     <div id="phase">Fog thin</div>
     <div id="horde">Horde: not seen</div>
     <div id="where">Wolcott Ave</div>
+    <div id="supplies"></div>
     <div id="stance"></div>
     <div class="meter"><span>NOISE</span><i><b id="noiseBar"></b></i></div>
   </div>
@@ -36,7 +37,7 @@
       <kbd>WASD</kbd> move &nbsp;<kbd>Shift</kbd> sprint &nbsp;<kbd>C</kbd> sneak &nbsp;<kbd>Space</kbd> dodge / vault<br>
       <kbd>Click</kbd> fire / swing &nbsp;<kbd>R</kbd> reload &nbsp;<kbd>X</kbd> weapon &nbsp;<kbd>B</kbd> fire mode &nbsp;<kbd>N</kbd> suppressor<br>
       <kbd>V</kbd>/<kbd>RMB</kbd> shove · kick door · quiet kill &nbsp;<kbd>G</kbd> hold to throw &nbsp;<kbd>T</kbd> next throwable<br>
-      <kbd>E</kbd> pick up / door / repair &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
+      <kbd>E</kbd> use · search · door · repair &nbsp;<kbd>Tab</kbd> inventory &nbsp;<kbd>K</kbd> build &nbsp;<kbd>F</kbd> flashlight &nbsp;<kbd>L</kbd> line lights<br>
       <kbd>1</kbd> hold &nbsp;<kbd>2</kbd> follow &nbsp;<kbd>3</kbd> fall back &nbsp;<kbd>4</kbd> fire / quiet &nbsp;<kbd>Q</kbd> swap soldier<br>
       <kbd>M</kbd> map &nbsp;<kbd>Wheel</kbd> zoom &nbsp;<kbd>Enter</kbd> end day &nbsp;<kbd>Esc</kbd> pause &nbsp;<kbd>H</kbd> hide keys
     </div>
@@ -85,6 +86,10 @@
   </div>
 </div>
 
+<div id="inv" hidden></div>
+<div id="workshop" hidden></div>
+<div id="buildbar" hidden></div>
+
 <div id="bigmap" hidden><canvas id="bigmapC"></canvas><div class="bmhint">PILSEN · M OR ESC TO CLOSE</div></div>
 
 <div class="ov" id="over" hidden>
@@ -104,6 +109,8 @@
 <script src="js/atmosphere.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/weapons.js"></script>
+<script src="js/loot.js"></script>
+<script src="js/build.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
