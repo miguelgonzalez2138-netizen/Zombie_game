@@ -156,6 +156,7 @@ function buildClick(){
     else setEdgeType(e,ET.FCUT);
     const m=edgeMid(e); chips(m.x,m.L*LH+1,m.z,6,0,0,0x6a5a44);
   } else { addStruct(type,s.L,BUILD.fp,BUILD.rot); SUP.scrap-=costOf(T); }
+  giveXP(s,6,'build');
   if(AC){ sThud(0.35); setTimeout(()=>sThud(0.3),180); }
   spendTime(T.hours);
   minimapDirty=true; renderBuildBar();
@@ -270,6 +271,7 @@ function renderWS(){
     if(!affordable(r.cost)||G.phase!=='day') return;
     for(const k in r.cost) SUP[k]-=r.cost[k];
     if(up){ BASEUP[r.id]=true; r.apply(); } else r.give();
+    giveXP(squad[me],up?15:5,'build');
     spendTime(r.hours); if(AC){ sThud(0.3); setTimeout(()=>SFX.clang(0),200); }
     bannerShow(r.name,'+'+r.hours+(r.hours===1?' HOUR':' HOURS'),1.4);
     renderWS();

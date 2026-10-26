@@ -59,7 +59,7 @@ function countKey(g,key){ let n=0; for(const o of g.items) if(o.key===key) n+=o.
 // simplified pools: food, water, fuel, scrap. Gear (meds, mods, weapons, tools) lives in the stash grid.
 const SUP={food:0,water:0,fuel:0,scrap:0};
 const stash=new Grid(10,8,'STASH');
-for(const s of squad){ s.pack=new Grid(6,5,s.short); }
+forEachSoldier(s=>{ s.pack=new Grid(6,5,s.short); });
 // random supplies each run
 SUP.food=6+(Math.random()*5|0); SUP.water=6+(Math.random()*5|0); SUP.fuel=2+(Math.random()*3|0); SUP.scrap=10+(Math.random()*8|0);
 autoPlace(squad[0].pack,mkItem('supp')); autoPlace(squad[0].pack,mkItem('bandage',2));
@@ -188,10 +188,11 @@ function corpseDrop(i){
 function useItem(s,it,g){
   const T=IT[it.key];
   if(T.cat==='med'){
-    if(T.heal){ if(s.hp>=100){ radioLine(s.short.charAt(0)+s.short.slice(1).toLowerCase()+' is fine.'); return; } s.hp=Math.min(100,s.hp+T.heal); }
+    let what='';
+    if(T.heal){ const hurt=s.hp<100||s.wounds.bleed||s.wounds.leg||s.wounds.arm; if(!hurt){ radioLine(s.short.charAt(0)+s.short.slice(1).toLowerCase()+' is fine.'); return; } s.hp=Math.min(100,s.hp+T.heal*(hasPerk(s,'medic')?1.5:1)); what=treatWounds(s,T); giveXP(s,3,'heal'); }
     if(T.calm) s.stress=Math.max(0,s.stress-T.calm);
     it.n--; if(it.n<=0) removeItem(g,it);
-    radioLine(s.short.charAt(0)+s.short.slice(1).toLowerCase()+' used '+T.name.toLowerCase()+'.');
+    radioLine(s.short.charAt(0)+s.short.slice(1).toLowerCase()+' used '+T.name.toLowerCase()+(what?' ('+what+')':'')+'.');
     if(AC) SFX.click(0,0.3); return;
   }
   if(T.cat==='mod'){ attachMod(s,it,g,null); return; }
@@ -229,14 +230,15 @@ function depositSupplies(s){
 }
 // dawn: everyone eats and drinks from the pools; hot food if there's fuel for the stove
 function dailyUpkeep(){
-  const alive=squad.filter(s=>s.alive);
+  const alive=squad.filter(s=>s.alive&&!s.away);
   // whoever's home empties their pack into the stash first
   for(const s of alive) if(atBase(s)) depositSupplies(s);
   let hungry=0, thirsty=0, hot=false;
   if(SUP.fuel>=1&&SUP.food>=1){ SUP.fuel-=1; hot=true; }
   for(const s of alive){
-    if(SUP.food>=1) SUP.food--; else { hungry++; s.hp=Math.max(5,s.hp-18); }
-    if(SUP.water>=1) SUP.water--; else { thirsty++; s.hp=Math.max(5,s.hp-22); }
+    const k=hasPerk(s,'iron')?0.5:1;
+    if(SUP.food>=1) SUP.food--; else { hungry++; s.hp=Math.max(5,s.hp-18*k); s.fat=Math.min(100,s.fat+10*k); }
+    if(SUP.water>=1) SUP.water--; else { thirsty++; s.hp=Math.max(5,s.hp-22*k); }
     if(hot) s.stress=Math.max(0,s.stress-15);
   }
   if(BASEUP.barrels) SUP.water+=2;
@@ -253,7 +255,7 @@ const INV={open:false,who:me,other:null,otherKind:'',drag:null,searchT:0};
 const invEl=document.getElementById('inv');
 function invOpen(kind,other){
   const s=squad[me]; INV.open=true; INV.who=me; INV.otherKind=kind||''; INV.other=other||null;
-  if(kind==='container'&&!other.rolled) rollContainer(other);
+  if(kind==='container'&&!other.rolled){ rollContainer(other); giveXP(s,3,'search'); }
   invEl.hidden=false; mouseDown=false; throwAiming=false; renderInv();
 }
 function invClose(){ INV.open=false; invEl.hidden=true; cancelDrag(); }
@@ -352,7 +354,7 @@ function updateInv(dt){
   if(INV.otherKind==='container'){ const c=INV.other;
     if(c.L!==s.L||boxDist(c.f,s.x,s.z)>1.6){ invClose(); return; }
     const h=c.grid.items.find(i=>i.hidden);
-    if(h){ INV.searchT-=dt; if(INV.searchT<=0){ INV.searchT=0.45; h.hidden=false; c.seen++; if(AC) SFX.click(0,0.15); if(Math.random()<.3) makeNoise(s.x,s.z,3,s.L); if(!INV.drag) renderInv(); } }
+    if(h){ INV.searchT-=dt; if(INV.searchT<=0){ INV.searchT=hasPerk(s,'scrounger')?0.25:0.45; h.hidden=false; c.seen++; if(AC) SFX.click(0,0.15); if(Math.random()<.3) makeNoise(s.x,s.z,3,s.L); if(!INV.drag) renderInv(); } }
   } else if(INV.otherKind==='stash'&&!atBase(s)){ INV.otherKind=''; INV.other=null; renderInv(); }
   if(INV.who!==me&&!whoCanSee(INV.who)){ INV.who=me; renderInv(); }
 }

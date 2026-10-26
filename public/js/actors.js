@@ -6,11 +6,15 @@
 const matUni=phong({color:0xccb88f}), matUni2=phong({color:0xb09c74}), matVest=phong({color:0x7c6e4e}), matHelm=phong({color:0x8e7f58}),
   matGun=phong({color:0x1c1a18}), matSkin=phong({color:0xa98466}), matBoot=phong({color:0x2e2a24}), matPack=phong({color:0x6b6145});
 const matBandage=phong({color:0xcfc8b8}), matRadio=phong({color:0x3e4232}), matGoggle=phong({color:0x22262a});
-function soldierMesh(idx){
-  const g=new THREE.Group();
-  const M={uni:matUni.clone(),uni2:matUni2.clone(),vest:matVest.clone(),pack:matPack.clone(),helm:matHelm.clone()};
+// idx: one of the original four (their kit details), or a look for recruits: {civ, shirt, pants, hair, skin, cap}
+function soldierMesh(idx,look){
+  look=look||{};
+  const g=new THREE.Group(), civ=!!look.civ;
+  const M={uni:matUni.clone(),uni2:matUni2.clone(),vest:matVest.clone(),pack:matPack.clone(),helm:matHelm.clone(),skin:matSkin.clone()};
   if(idx===3) M.helm.color.setHex(0x6d6a4c);
   if(idx===1) M.helm.color.setHex(0x7d7454);
+  if(civ){ M.uni.color.setHex(look.shirt); M.uni2.color.setHex(look.pants); M.helm.color.setHex(look.hair); M.pack.color.setHex(look.bag||0x4a4038); M.vest.color.setHex(look.jacket||look.shirt); }
+  if(look.skin) M.skin.color.setHex(look.skin);
   const box=(parent,w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;parent.add(m);return m;};
   const legs=[];
   for(const sx of [-1,1]){
@@ -23,10 +27,13 @@ function soldierMesh(idx){
   const torso=new THREE.Group(); torso.position.set(0,0.86,0); g.add(torso);
   box(torso,0.42,0.18,0.24,M.uni2,0,0.06,0);
   box(torso,0.46,0.5,0.26,M.uni,0,0.38,0);
-  box(torso,0.5,0.4,0.31,M.vest,0,0.4,0.01);
-  for(const px of [-0.13,0,0.13]) box(torso,0.1,0.13,0.07,M.pack,px,0.3,0.18);
-  box(torso,0.4,0.48,0.22,M.pack,0,0.42,-0.25);
-  box(torso,0.36,0.12,0.18,M.pack,0,0.72,-0.24);
+  if(civ){ if(look.jacket) box(torso,0.5,0.46,0.3,M.vest,0,0.39,0.0); if(look.bag) box(torso,0.34,0.4,0.18,M.pack,0,0.42,-0.22); }
+  else {
+    box(torso,0.5,0.4,0.31,M.vest,0,0.4,0.01);
+    for(const px of [-0.13,0,0.13]) box(torso,0.1,0.13,0.07,M.pack,px,0.3,0.18);
+    box(torso,0.4,0.48,0.22,M.pack,0,0.42,-0.25);
+    box(torso,0.36,0.12,0.18,M.pack,0,0.72,-0.24);
+  }
   for(const sx of [-1,1]) box(torso,0.14,0.12,0.24,M.uni,sx*0.29,0.58,0);
   if(idx===0){ // radio pack + whip antenna + handset on the shoulder
     box(torso,0.3,0.34,0.15,matRadio,0,0.44,-0.42);
@@ -34,9 +41,12 @@ function soldierMesh(idx){
     box(torso,0.07,0.12,0.06,matGoggle,-0.22,0.6,0.12);
   }
   const head=new THREE.Group(); head.position.set(0,0.66,0.02); torso.add(head);
-  box(head,0.2,0.22,0.2,matSkin,0,0.11,0);
+  box(head,0.2,0.22,0.2,M.skin,0,0.11,0);
   const headBand=box(head,0.215,0.06,0.215,matBandage,0,0.13,0); headBand.visible=false;
-  if(idx===2){ // patrol cap instead of a helmet
+  if(civ){
+    if(look.cap){ box(head,0.23,0.08,0.24,M.helm,0,0.24,0); box(head,0.2,0.02,0.12,M.helm,0,0.21,0.16); }
+    else { box(head,0.22,0.07,0.22,M.helm,0,0.24,-0.01); box(head,0.22,0.14,0.05,M.helm,0,0.16,-0.1); if(look.long) box(head,0.22,0.22,0.06,M.helm,0,0.06,-0.12); }
+  } else if(idx===2){ // patrol cap instead of a helmet
     box(head,0.23,0.09,0.25,M.helm,0,0.24,0);
     box(head,0.22,0.02,0.13,M.helm,0,0.2,0.17);
   } else {
@@ -56,8 +66,9 @@ const DIRT=new THREE.Color(0x4e4636);
 function applyWear(s){
   const u=s.mesh.userData, w=Math.min(0.55,(G.night-1)*0.11+(100-s.hp)*0.002);
   for(const k of ['uni','uni2','vest','pack']) u.M[k].color.copy(u.base[k]).lerp(DIRT,w);
-  u.armBands[1].visible=s.i===3||s.hp<75;          // Hale's had his arm wrapped since day one
-  u.armBands[0].visible=s.hp<50;
+  if(u.armBands.length<2) return;
+  u.armBands[1].visible=s.short==='HALE'||s.hp<75||s.wounds.arm>0;          // Hale's had his arm wrapped since day one
+  u.armBands[0].visible=s.hp<50||s.wounds.bleed>0;
   u.headBand.visible=s.hp<35;
 }
 const SQUAD_DEF=[
@@ -66,16 +77,33 @@ const SQUAD_DEF=[
   {name:'PFC Kowalski',short:'KOWALSKI',trait:'marksman',acc:.76,stress:1.0,melee:.9,kit:['m24','m9',null],post:{x:2.8,z:-12.0}},
   {name:'Pvt. Hale',short:'HALE',trait:'quiet',acc:.5,stress:.8,melee:1.7,kit:['m870',null,'bat'],post:{x:8.6,z:-12.0}},
 ];
-const FOLLOW_SLOTS=[{x:-1.6,z:1.8},{x:1.6,z:1.8},{x:0,z:3.0}];
-const BACK_SPOTS=[{x:-14.6,z:11.4},{x:-15.2,z:14},{x:-14.6,z:16.6},{x:-17,z:13}];
-const squad=SQUAD_DEF.map((d,i)=>{
-  const mesh=soldierMesh(i); mesh.scale.setScalar(1.2); mesh.rotation.order='YXZ'; onCharLayer(mesh); scene.add(mesh);
-  const light=new THREE.SpotLight(0xfff0d0,i===0?1.7:0.9,i===0?32:22,0.42,0.6,1.4);
-  const tgt=new THREE.Object3D(); scene.add(tgt); light.target=tgt; light.layers.enableAll(); scene.add(light);
-  return Object.assign({},d,{i,x:d.post.x,z:d.post.z,ang:Math.PI,hp:100,reloadT:0,reloadMax:1,reloadW:'',magOut:false,fireCD:0,inv:d.kit.slice(),slot:0,wpn:d.kit[0],mags:{},modes:{},supp:{},bloom:0,drawT:0,cycleT:0,trig:true,
+const MAX_SQUAD=8;
+// followers fan out behind whoever you're playing
+function followSlot(n){ const row=Math.floor(n/3), col=n%3; return {x:(col-1)*1.6,z:1.8+row*1.3}; }
+const BACK_SPOTS=[{x:-14.6,z:11.4},{x:-15.2,z:14},{x:-14.6,z:16.6},{x:-17,z:13},{x:-17,z:10},{x:-17,z:16},{x:-19,z:12},{x:-19,z:15}];
+// lights are made up front for a full squad: adding lights later recompiles every material
+const SOLDIER_LIGHTS=[];
+for(let i=0;i<MAX_SQUAD;i++){ const light=new THREE.SpotLight(0xfff0d0,0,22,0.42,0.6,1.4); const tgt=new THREE.Object3D(); scene.add(tgt); light.target=tgt; light.layers.enableAll(); scene.add(light); SOLDIER_LIGHTS.push({light,tgt}); }
+// other systems hang their per-soldier parts on through this
+const SOLDIER_HOOKS=[];
+function forEachSoldier(fn){ for(const s of squad) fn(s); SOLDIER_HOOKS.push(fn); }
+let uidSeq=0;
+function makeSoldier(d,mesh){
+  const i=squad.length;
+  if(!mesh){ mesh=soldierMesh(i,d.look); }
+  mesh.scale.setScalar(1.2); mesh.rotation.order='YXZ'; onCharLayer(mesh); scene.add(mesh);
+  const {light,tgt}=SOLDIER_LIGHTS[i];
+  const s=Object.assign({},d,{i,uid:uidSeq++,stressK:d.stress,x:d.post.x,z:d.post.z,ang:Math.PI,hp:100,reloadT:0,reloadMax:1,reloadW:'',magOut:false,fireCD:0,inv:d.kit.slice(),slot:0,wpn:d.kit[0]||'fists',mags:{},modes:{},bloom:0,drawT:0,cycleT:0,trig:true,
     stam:100,stamT:0,sprint:false,sneak:false,dodge:null,vault:null,iframe:0,actT:0,swingT:0,kickT:0,throwT:0,hiding:false,loudT:0,burst:0,stepD:0,meleeCD:0,stress:0,alive:true,
-    mesh,light,tgt,lightOn:true,panic:0,status:'HOLD',near:0,sight:7,vx:0,vz:0,walk:0,recoil:0,shoveT:0,boots:0,step:0,foot:1,L:0,trav:null,y:0,field:null,goalKey:''});
-});
+    mesh,light,tgt,lightOn:true,panic:0,status:'HOLD',near:0,sight:7,vx:0,vz:0,walk:0,recoil:0,shoveT:0,boots:0,step:0,foot:1,L:0,trav:null,y:0,field:null,goalKey:'',
+    order:'hold',watch:null,wounds:{leg:0,arm:0,bleed:0},xp:0,lvl:1,perks:[],perkPending:0,offer:null,did:{fight:0,melee:0,build:0,search:0,heal:0,scav:0,shot:0},fat:10,away:null,days:0});
+  s.stress=0; s.post={x:d.post.x,z:d.post.z};
+  squad.push(s);
+  for(const fn of SOLDIER_HOOKS) fn(s);
+  return s;
+}
+const squad=[];
+for(const d of SQUAD_DEF) makeSoldier(d);
 let me=0;
 const ring=new THREE.Mesh(new THREE.RingGeometry(0.55,0.68,16),new THREE.MeshBasicMaterial({color:0xcdb88e,fog:false,transparent:true,opacity:.7}));
 ring.rotation.x=-Math.PI/2; onCharLayer(ring); scene.add(ring);

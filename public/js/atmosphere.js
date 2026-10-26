@@ -142,12 +142,12 @@ const H={
   f0:halo(0,0.4,0,0xff3020,4.5,0.7), f1:halo(0,0.4,0,0xff3020,4.5,0.7),
 };
 const muzzle=[0,1].map(()=>{ const s=makeSprite(texFlash,0xffe8c0,true,1.9); s.visible=false; return s; });
-const lensHalos=squad.map(()=>makeSprite(texHalo,0xfff2d8,true,1.1));
+forEachSoldier(s=>{ s.halo=makeSprite(texHalo,0xfff2d8,true,1.1); });
 const FL={work:fxLight(LIGHT_WORK.x,3.3,LIGHT_WORK.z,9,0xffd29a),barrel:fxLight(LIGHT_BARREL.x,1.2,LIGHT_BARREL.z,6,0xff8a3a),door:fxLight(DOOR.x+0.6,1.8,DOOR.z,5,0xffb06a),
   lamp:fxLight(LAMP.x,5,LAMP.z,7,0xc8d4ff),car:fxLight(CARFIRE.x,1.6,CARFIRE.z,9,0xff7a2a),f0:fxLight(0,0.5,0,6,0xff2a1e),f1:fxLight(0,0.5,0,6,0xff2a1e),
   mz0:fxLight(0,1.5,0,7,0xffd08a),mz1:fxLight(0,1.5,0,7,0xffd08a),me:fxLight(0,1.2,0,6,0xfff0d0),
   boom:fxLight(0,1,0,12,0xffb060),fire0:fxLight(0,1,0,7,0xff7a2a),fire1:fxLight(0,1,0,7,0xff7a2a)};
-for(const s of squad){ s.cone=makeCone(s.i===0?13:10,0.3); }
+forEachSoldier(s=>{ s.cone=makeCone(s.i===0?13:10,0.3); });
 
 /* ---------- small signs of life ---------- */
 const birds=[], BIRD_HOMES=[{x:-10.9,z:-3.5},{x:9.6,z:19},{x:3.5,z:-31},{x:-8.5,z:44},{x:-2.5,z:3.5},{x:10.6,z:-58}];

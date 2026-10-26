@@ -30,5 +30,6 @@ Cloudflare Workers Builds runs `npx wrangler deploy` on every push to `main`. `w
 - `public/js/weapons.js` — weapon roster, shared ammo, firing, reloads, melee, throwables, explosions, fire, pickups
 - `public/js/loot.js` — item types, grid inventories, containers and loot tables, supplies, the inventory screen
 - `public/js/build.js` — build mode, traps and the MG nest, boarding and fence cutting, the workshop
+- `public/js/squad.js` — recruits, wounds, XP and perks, relationships, fatigue, orders and the wheel, scavenging runs, squad cards and screen
 - `public/js/game.js` — game state, AI, input, HUD, main loop
 - `docs/design.md` — every design decision so far

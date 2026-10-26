@@ -94,7 +94,7 @@ function equip(s,slot,quiet){
   if(!quiet&&AC) SFX.rack(0,0.25);
   return true;
 }
-for(const s of squad){ s.mods={}; for(let k=0;k<3;k++){ const key=s.inv[k]; if(key){ s.mags[key]=magCap(s,key); s.modes[key]=0; } } equip(s,0,true); }
+forEachSoldier(s=>{ s.mods=s.mods||{}; for(let k=0;k<3;k++){ const key=s.inv[k]; if(key){ s.mags[key]=magCap(s,key); s.modes[key]=0; } } if(!equip(s,0,true)&&!equip(s,1,true)&&!equip(s,2,true)){ s.wpn='fists'; s.slot=2; setHoldSafe(s); } });
 
 function cycleWeapon(s){ if(s.mounted) return; for(let k=1;k<=3;k++){ const n=(s.slot+k)%3; if(s.inv[n]){ if(n!==s.slot) equip(s,n); return; } } }
 // nothing in any slot: fists
@@ -134,12 +134,14 @@ function fire(s,ang,targetJ){
   // where the round goes: player aim wanders with movement, bloom and nerves; buddies roll their skill
   let a=ang;
   const moving=Math.hypot(s.vx,s.vz)>0.5;
-  if(isMe){ const sp=(W.spread+(moving?W.move*(grip?0.75:1):0)+s.bloom+s.stress*0.0006)*(s.sneak&&!moving?0.7:1)*(scope&&!moving?0.6:1); a=ang+randn()*sp; }
-  else if(targetJ>=0){ const d=Math.hypot(zx[targetJ]-M.x,zz[targetJ]-M.z); const chance=clamp(s.acc+(W.key==='m24'?0.15:0)-s.stress*0.003-d*0.008*(W.key==='m24'?0.3:1),0.12,0.95);
+  if(isMe){ const sp=(W.spread+(moving?W.move*(grip?0.75:1):0)+s.bloom+s.stress*0.0006)*(s.sneak&&!moving?0.7:1)*(scope&&!moving?0.6:1)*aimMul(s); a=ang+randn()*sp; }
+  else if(targetJ>=0){ const d=Math.hypot(zx[targetJ]-M.x,zz[targetJ]-M.z); const chance=clamp((s.acc+(W.key==='m24'?0.15:0)+(s.mounted?0.12:0))/aimMul(s)-s.stress*0.003-d*0.008*(W.key==='m24'?0.3:1),0.12,0.95);
     a=Math.atan2(zx[targetJ]-M.x,zz[targetJ]-M.z)+(Math.random()<chance?randn()*W.spread:rand(.05,.12)*(Math.random()<.5?-1:1)); }
   s.bloom=Math.min(W.bloomMax,s.bloom+W.bloom*(grip?0.65:1));
   const n=W.pellets||1;
+  HIT.s=s; HIT.melee=false; HIT.quiet=false;
   for(let k=0;k<n;k++) shootRay(s,n>1?a+randn()*W.cone:a,W,M,k<3||n===1);
+  HIT.s=null;
   flashAt(M.x,M.z,y,supp?0.25:1);
   if(isMe){ const kk=W.kick*(grip?0.65:1); G.shake=Math.max(G.shake,W.shake*(supp?0.7:1)*(grip?0.8:1)); G.kickX-=Math.sin(ang)*kk; G.kickZ-=Math.cos(ang)*kk; }
   const ps=squad[me]; sGun(Math.hypot(s.x-ps.x,s.z-ps.z),W.snd,supp,clamp((s.x-ps.x)/20,-1,1));
@@ -166,7 +168,7 @@ function shootRay(s,a,W,M,showTracer){
   let dmg=W.dmg*(hasMod(s,'supp',W.key)?0.92:1)*(passed.length?0.7:1), left=(W.pen||0)+1, endT=wallT, stopped=false;
   for(const h of _hits){ if(left<=0) break; const j=h%1000, t=(h-j)/100000;
     const fall=W.pellets?clamp(1-t/R*0.75,0.25,1):1;
-    const crit=Math.random()<(W.crit+(hasMod(s,'scope',W.key)?0.06:0))*(s.i===me?1.1:1)*(W.pellets?0.3:1);
+    const crit=Math.random()<(W.crit+(hasMod(s,'scope',W.key)?0.06:0)+(hasPerk(s,'eagle')?0.08:0))*(s.i===me?1.1:1)*(W.pellets?0.3:1);
     damageZ(j,crit?Math.max(200,W.dmg*2.5):dmg*fall,s.x,s.z,W.knock*fall);
     dmg*=0.65; left--; endT=t; if(left<=0) stopped=true;
   }
@@ -180,7 +182,7 @@ function reload(s){
   const W=WPN[s.wpn]; if(W.melee||s.reloadT>0||s.drawT>0) return false;
   if(s.mags[s.wpn]>=magCap(s)) return false;
   if(AMMO[W.ammo]<=0){ if(s.i===me) radioLine('Out of '+AMMO_NAME[W.ammo]+'.'); return false; }
-  s.reloadW=s.wpn; s.reloadT=s.reloadMax=W.shell||W.reload; s.magOut=false;
+  s.reloadW=s.wpn; s.reloadT=s.reloadMax=(W.shell||W.reload)*reloadMul(s); s.magOut=false;
   if(s.i===me&&AC) SFX.click(0,0.35);
   return true;
 }
@@ -197,7 +199,7 @@ function stepReload(s,dt){
     if(W.key==='rev'&&s.mags.rev===0&&!s.magOut){ s.magOut=true; for(let k=0;k<6;k++) eject(s); }
     const cap=magCap(s,s.reloadW);
     if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<cap){ s.mags[s.reloadW]++; AMMO[W.ammo]--; if(AC) SFX.click(pan,vol); }
-    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<cap){ s.reloadT=s.reloadMax=W.shell; }
+    if(AMMO[W.ammo]>0&&s.mags[s.reloadW]<cap){ s.reloadT=s.reloadMax=W.shell*reloadMul(s); }
     else { s.reloadT=0; if(AC) SFX.rack(pan,vol); }
   } else {
     const take=Math.min(magCap(s,s.reloadW)-s.mags[s.reloadW],AMMO[W.ammo]); s.mags[s.reloadW]+=take; AMMO[W.ammo]-=take; s.reloadT=0;
@@ -228,7 +230,7 @@ function stealthKill(s,j){
   s.actT=0.65; s.swingT=0.4; s.vx=s.vz=0;
   const dx=zx[j]-s.x, dz=zz[j]-s.z, d=Math.hypot(dx,dz)||1; zdx[j]=dx/d; zdz[j]=dz/d;
   bleed(zx[j],1.5*zsc[j],zz[j],dx/d,dz/d,10,1.2,zyv[j]);
-  zhp[j]=0; killZ(j,true);
+  zhp[j]=0; HIT.s=s; HIT.quiet=true; HIT.melee=true; killZ(j,true); HIT.s=null; HIT.quiet=false;
   if(AC) SFX.chop(0,0.25); sThud(0.12);
   s.ang=Math.atan2(dx,dz);
 }
@@ -242,6 +244,7 @@ function shove(s){
   s.meleeCD=0.6; s.shoveT=0.25;
   const fx_=Math.sin(s.ang), fz_=Math.cos(s.ang); let hit=false;
   const bay=s.bay&&s.wpn==='m4';
+  HIT.s=s; HIT.melee=true;
   eachNear(s.x,s.z,2.4,j=>{
     if(zl[j]!==s.L||zst[j]===5) return;
     const dx=zx[j]-s.x, dz=zz[j]-s.z, d=Math.hypot(dx,dz); if(d>(bay?2.2:1.9)||d<1e-3) return;
@@ -250,6 +253,7 @@ function shove(s){
     bleed(zx[j],1.2,zz[j],dx/d,dz/d,bay?9:4,1.5,zyv[j]);
     if(zhp[j]<=0) killZ(j,true);
   });
+  HIT.s=null; HIT.melee=false;
   sThud(hit?0.5:0.2);
   if(hit) makeNoise(s.x,s.z,5,s.L);
 }
@@ -264,6 +268,7 @@ function swing(s){
   list.sort((a,b)=>a[0]-b[0]);
   const pan=clamp((s.x-squad[me].x)/20,-1,1);
   if(AC) SFX.swing(pan,0.3);
+  HIT.s=s; HIT.melee=true;
   for(let k=0;k<Math.min(W.hits,list.length);k++){
     const j=list[k][1], dx=zx[j]-s.x, dz=zz[j]-s.z, d=list[k][0]||1;
     const crit=Math.random()<W.crit;
@@ -271,6 +276,7 @@ function swing(s){
     if(zst[j]&&zst[j]!==5) zstun[j]=Math.max(zstun[j],W.stun);
     if(AC) (W.edge?SFX.chop:SFX.kick)(pan,0.35);
   }
+  HIT.s=null; HIT.melee=false;
   if(list.length) makeNoise(s.x,s.z,W.noise,s.L);
 }
 function doorAhead(s){
@@ -351,7 +357,7 @@ function footsteps(s,dt){
   const sp=Math.hypot(s.vx,s.vz); if(sp<0.8) return;
   s.stepD+=sp*dt; if(s.stepD<0.75) return; s.stepD=0;
   if(s.sneak) return;
-  const r=s.sprint?9.5:sp>4.2?5:3;
+  const r=(s.sprint?9.5:sp>4.2?5:3)*(hasPerk(s,'light')?0.5:1);
   makeNoise(s.x,s.z,r,s.L);
 }
 
@@ -378,7 +384,7 @@ function throwIt(s,kind){
   THR[kind]--; cancelReload(s); s.throwT=0.45;
   const T=throwTarget(s), P=throwPath(s,T);
   const m=new THREE.Mesh(projGeo[kind],kind==='frag'?matFrag:kind==='molotov'?matBottle:matDecoy); m.castShadow=true; onCharLayer(m); scene.add(m);
-  proj.push({kind,x:P.x0,y:P.y0,z:P.z0,vx:P.vx,vy:P.vy,vz:P.vz,L:s.L,t:0,fuse:kind==='frag'?2.3:kind==='decoy'?15:0,m,rest:false,spin:rand(-12,12),beep:0,call:0,
+  proj.push({by:s,kind,x:P.x0,y:P.y0,z:P.z0,vx:P.vx,vy:P.vy,vz:P.vz,L:s.L,t:0,fuse:kind==='frag'?2.3:kind==='decoy'?15:0,m,rest:false,spin:rand(-12,12),beep:0,call:0,
     lit:kind==='decoy'?halo(0,0,0,0xff3020,1.2,0.8):null});
   if(AC) SFX.swing(0,0.25);
   makeNoise(s.x,s.z,2,s.L);
@@ -420,7 +426,7 @@ function updateProj(dt){
     }
     p.m.position.set(p.x,p.y,p.z); p.m.rotation.set(p.t*p.spin,p.t*p.spin*0.6,0);
     if(p.kind==='molotov'&&Math.random()<dt*30) emit(true,p.x,p.y+0.15,p.z,0,0.5,0,0.25,0.25,0.05,0xff8a3a,0.9);
-    if(p.kind==='frag'){ p.fuse-=dt; if(p.fuse<=0){ explode(p.x,p.y,p.z,p.L); scene.remove(p.m); proj.splice(k,1); continue; } }
+    if(p.kind==='frag'){ p.fuse-=dt; if(p.fuse<=0){ HIT.s=p.by; explode(p.x,p.y,p.z,p.L); HIT.s=null; scene.remove(p.m); proj.splice(k,1); continue; } }
     if(p.kind==='decoy'&&p.rest){
       p.fuse-=dt; p.beep-=dt; p.call-=dt;
       p.lit.spr.position.set(p.x,p.y+0.12,p.z); p.lit.k=(p.beep>0.45)?1:0.15;
