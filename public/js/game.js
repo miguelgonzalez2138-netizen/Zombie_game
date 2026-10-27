@@ -1079,9 +1079,7 @@ function frame(now){
   moon.target.position.set(cx,0,cz); moon.position.set(cx+sunOff.x,sunOff.y,cz+sunOff.z);
   for(const m of mists){ m.position.x=Math.round(cx); m.position.z=Math.round(cz); }
   mistU.uCenter.value.set(cx,cz);
-  assignLights(p.x,p.z); assignSpots();
-  // the shadow map is the most expensive pass and nothing big moves: redraw it every third frame
-  frame.sh=((frame.sh||0)+1)%3; if(frame.sh===0) renderer.shadowMap.needsUpdate=true;
+  renderer.shadowMap.needsUpdate=true;
   renderer.autoClear=true;
   camera.layers.set(0);
   renderer.setRenderTarget(rtLow); renderer.render(scene,camera);

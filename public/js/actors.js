@@ -83,15 +83,7 @@ function followSlot(n){ const row=Math.floor(n/3), col=n%3; return {x:(col-1)*1.
 const BACK_SPOTS=[{x:-14.6,z:11.4},{x:-15.2,z:14},{x:-14.6,z:16.6},{x:-17,z:13},{x:-17,z:10},{x:-17,z:16},{x:-19,z:12},{x:-19,z:15}];
 // lights are made up front for a full squad: adding lights later recompiles every material
 const SOLDIER_LIGHTS=[];
-for(let i=0;i<MAX_SQUAD;i++){ SOLDIER_LIGHTS.push({light:{intensity:0,distance:22,position:new THREE.Vector3()},tgt:{position:new THREE.Vector3()}}); }
-// only three real flashlights: the player's and the two nearest lit buddies (the beams themselves are fake cones)
-const SPOT_POOL=[];
-for(let i=0;i<3;i++){ const l=new THREE.SpotLight(0xfff0d0,0,22,0.42,0.6,1.4); const t=new THREE.Object3D(); scene.add(t); l.target=t; l.layers.enableAll(); scene.add(l); SPOT_POOL.push(l); }
-function assignSpots(){
-  const p=squad[me], c=squad.filter(s=>s.light.intensity>0).sort((a,b)=>(a.i===me?-1:b.i===me?1:Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z)));
-  for(let i=0;i<SPOT_POOL.length;i++){ const l=SPOT_POOL[i], s=c[i]; if(!s){ l.intensity=0; continue; }
-    l.position.copy(s.light.position); l.target.position.copy(s.tgt.position); l.intensity=s.light.intensity; l.distance=s.light.distance; }
-}
+for(let i=0;i<MAX_SQUAD;i++){ const light=new THREE.SpotLight(0xfff0d0,0,22,0.42,0.6,1.4); const tgt=new THREE.Object3D(); scene.add(tgt); light.target=tgt; light.layers.enableAll(); scene.add(light); SOLDIER_LIGHTS.push({light,tgt}); }
 // other systems hang their per-soldier parts on through this
 const SOLDIER_HOOKS=[];
 function forEachSoldier(fn){ for(const s of squad) fn(s); SOLDIER_HOOKS.push(fn); }
