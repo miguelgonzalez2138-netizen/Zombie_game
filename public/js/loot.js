@@ -234,7 +234,7 @@ function dailyUpkeep(){
   // whoever's home empties their pack into the stash first
   for(const s of alive) if(atBase(s)) depositSupplies(s);
   let hungry=0, thirsty=0, hot=false;
-  if(SUP.fuel>=1&&SUP.food>=1){ SUP.fuel-=1; hot=true; }
+  if(G.hotMeal){ hot=true; G.hotMeal=false; } else if(SUP.fuel>=1&&SUP.food>=1){ SUP.fuel-=1; hot=true; }
   for(const s of alive){
     const k=hasPerk(s,'iron')?0.5:1;
     if(SUP.food>=1) SUP.food--; else { hungry++; s.hp=Math.max(5,s.hp-18*k); s.fat=Math.min(100,s.fat+10*k); }
@@ -242,12 +242,13 @@ function dailyUpkeep(){
     if(hot) s.stress=Math.max(0,s.stress-15);
   }
   if(BASEUP.barrels) SUP.water+=2;
+  if(BASEUP.garden){ SUP.food+=1; radio('A handful of greens off the roof.'); }
   const msg=[]; if(hot) msg.push('Hot meal on the stove.'); else if(SUP.fuel<1) msg.push('No fuel for the stove. Cold beans.');
   if(hungry) msg.push(hungry+' went without food.'); if(thirsty) msg.push(thirsty+' went without water.');
   if(msg.length) radio(msg.join(' '));
   if(SUP.food<squad.length*2) radio('Food for '+Math.floor(SUP.food/Math.max(1,alive.length))+' more day'+(Math.floor(SUP.food/Math.max(1,alive.length))===1?'':'s')+'.');
 }
-const BASEUP={line:false,tools:false,barrels:false,stove:false};
+const BASEUP={line:false,tools:false,barrels:false,stove:false,lights:false,den:false,gen:false,garden:false,lookout:false};
 
 /* ---------- the inventory screen ---------- */
 const CS=34; // px per cell

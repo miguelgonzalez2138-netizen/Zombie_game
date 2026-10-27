@@ -232,3 +232,20 @@ function updateMusic(dt){
   MUS.cluster.gain.setTargetAtTime(Math.max(0,MUS.threat-0.4)*1.2,AC.currentTime,1.5);
   MUS.lp.frequency.setTargetAtTime(500+MUS.threat*700,AC.currentTime,2);
 }
+
+/* ---------- the radio, once there's power: something old and warm on quiet nights ---------- */
+const RM={t:0,step:0,on:0};
+const RM_PROG=[[220,261.6,329.6],[196,246.9,293.7],[174.6,220,261.6],[196,246.9,329.6]];
+function radioMusic(dt,on){
+  if(!AC) return;
+  RM.on=lerp(RM.on,on?1:0,Math.min(1,dt*0.8)); if(RM.on<0.03) return;
+  RM.t-=dt; if(RM.t>0) return; RM.t=0.42;
+  const t=AC.currentTime, chord=RM_PROG[Math.floor(RM.step/8)%RM_PROG.length], k=RM.step%8, v=0.03*RM.on*VOL.music;
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1400; lp.connect(master);
+  const note=(f,when,dur,vol,type)=>{ const g=AC.createGain(); g.connect(lp); env(g,when,0.01,vol,dur); osc(when,dur+0.1,type||'triangle',f,f*0.999,g); };
+  note(chord[[0,1,2,1,0,2,1,2][k]]*2,t,0.35,v);
+  if(k===0||k===4) note(chord[0]/2,t,0.8,v*1.6,'sine');
+  if(k%2===1&&Math.random()<.5) note(chord[2]*2*1.5,t+0.21,0.18,v*0.5);
+  if(Math.random()<0.3){ const g=AC.createGain(); g.connect(lp); env(g,t,0.001,v*0.4,0.03); nz(t,0.04,'highpass',3000,1,g); }
+  RM.step++;
+}

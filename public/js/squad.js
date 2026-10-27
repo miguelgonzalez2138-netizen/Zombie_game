@@ -81,7 +81,7 @@ function woundOnBite(s,fromX,fromZ){
   else { s.wounds.arm=Math.min(2,s.wounds.arm+1); bark(s,'arm'); }
 }
 function woundSpeed(s){ return (s.wounds.leg===2?0.62:s.wounds.leg===1?0.82:1)*(s.fat>85?0.88:1); }
-function aimMul(s){ return (s.wounds.arm===2?1.9:s.wounds.arm===1?1.4:1)*(s.fat>60?1+(s.fat-60)/90:1)*(hasPerk(s,'steady')?0.8:1); }
+function aimMul(s){ return (G.buffs&&G.buffs.clean===G.night?0.88:1)*(s.wounds.arm===2?1.9:s.wounds.arm===1?1.4:1)*(s.fat>60?1+(s.fat-60)/90:1)*(hasPerk(s,'steady')?0.8:1); }
 function reloadMul(s){ return (s.wounds.arm?1.35:1)*(hasPerk(s,'quick')?0.75:1); }
 function stepWounds(s,dt){
   if(s.wounds.bleed>0){ s.hp-=s.wounds.bleed*0.55*dt; if(Math.random()<dt*1.5) splat(s.x+rand(-.2,.2),s.z+rand(-.2,.2),0.09,0.13,undefined,s.y);

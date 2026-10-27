@@ -387,3 +387,12 @@ Collected from Miguel's answers. Where a pillar was skipped, it is Claude's call
 45. Muzzle flash: Bigger
 46–47. Tracers, melee arcs: Keep
 49–50. Squad cards, keys panel: Keep
+
+## The block as a safehouse (Miguel, Oct 27)
+- Goal: feel comfy in the block. Only event nights (siege, two hordes, brutal) bring the horde to the line.
+- Line: thicker (HESCO behind, wire in front, double toughness). On any non-event night or day, stragglers can't hurt it and can't enter the block; they press, give up, wander off.
+- Pass nights: the horde on 18th is scenery unless you get loud.
+- Off duty on quiet nights: one on watch, one cooks dinner (fuel + a hot meal), tired ones sleep on cots, the rest sit at the barrel fire or the radio. Player can sit (E) or sleep (runs 4× until morning or trouble).
+- Night jobs at the workbench (real time, no daylight): clean guns, sharpen blades, patch kit, boards for the line, fill bottles, write a letter.
+- Shop upgrades: string lights, fixed-up shop (couch, rug, card table), generator (radio music), rooftop garden (+1 food/day), lookout.
+- UI rework: later.

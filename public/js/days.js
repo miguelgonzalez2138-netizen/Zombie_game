@@ -113,7 +113,7 @@ function spawnWave(n){
 function nightStart(){
   const type=G.nightType, n=hordeSize();
   NIGHT_LOG.kills=0; NIGHT_LOG.lost=[]; NIGHT_LOG.hurt=new Set(); NIGHT_LOG.lineLost=0; NIGHT_LOG.type=type;
-  G.anchorX=150; G.anchorSpeed=(150+195)/(NIGHT_LEN*0.62); G.peel=0.0025+G.night*0.0012; G.waves=[];
+  G.anchorX=150; G.anchorSpeed=(150+195)/(NIGHT_LEN*0.62); G.peel=EVENT_NIGHTS.includes(type)?0.0025+G.night*0.0012:0; G.waves=[];
   if(type==='pass'||type==='storm') spawnPass(n,0);
   else if(type==='two'){ spawnPass(Math.round(n*0.6),0); spawnPass(Math.round(n*0.4),1); }
   else if(type==='siege') queueSiege(Math.round(n*0.8));
@@ -123,7 +123,7 @@ function nightStart(){
   for(let k=0;k<strag;k++){ const p=randomStreetSpot(30); if(p) spawnZ(p.x,p.z,4,0,0); }
   if(type==='quiet'||type==='pass') G.anchorX=type==='quiet'?999:150;
   if(type==='quiet'){ despawnAll(true); for(let k=0;k<strag;k++){ const p=randomStreetSpot(30); if(p) spawnZ(p.x,p.z,4,0,0); } }
-  const T=NIGHT_TYPES[type]; bannerShow('NIGHT '+G.night+' · '+T.name,T.sub,4);
+  const T=NIGHT_TYPES[type]; bannerShow('NIGHT '+G.night+' · '+T.name,EVENT_NIGHTS.includes(type)?T.sub:T.sub+' Nothing gets through the line tonight.',4);
 }
 function updateNight(dt){
   G.nightT+=dt;
@@ -317,7 +317,7 @@ function itemsOut(g){ return g.items.map(i=>({key:i.key,n:i.n,rot:i.rot,x:i.x,y:
 function itemsIn(g,list){ g.items.length=0; for(const o of list){ const it=mkItem(o.key,o.n,{rot:o.rot,x:o.x,y:o.y}); if(o.mag!==undefined) it.mag=o.mag; if(o.mods) it.mods=o.mods; if(o.hidden) it.hidden=true; g.items.push(it); } }
 function serialize(){
   const S={v:1,when:Date.now(),
-    G:{phase:G.phase,t:G.t,night:G.night,nightT:G.nightT,nightType:G.nightType,anchorX:G.anchorX,anchorSpeed:G.anchorSpeed,peel:G.peel,afterPass:G.afterPass,kills:G.kills,order:G.order,weaponsFree:G.weaponsFree,lightsOn:G.lightsOn,
+    G:{phase:G.phase,t:G.t,night:G.night,nightT:G.nightT,nightType:G.nightType,anchorX:G.anchorX,anchorSpeed:G.anchorSpeed,peel:G.peel,afterPass:G.afterPass,kills:G.kills,buffs:G.buffs,hotMeal:G.hotMeal,order:G.order,weaponsFree:G.weaponsFree,lightsOn:G.lightsOn,
       hordeBonus:G.hordeBonus,dayNoise:G.dayNoise,nextEvent:G.nextEvent,waves:G.waves,baseEmpty:G.baseEmpty,event:G.event&&G.event.kind!=='help'?G.event:null},
     me,SUP,AMMO,THR,BASEUP,WX:{kind:WX.kind,snow:WX.snow},STATS,NIGHT_LOG:{kills:NIGHT_LOG.kills,lost:NIGHT_LOG.lost,type:NIGHT_LOG.type},time,
     squad:squad.map(s=>({name:s.name,short:s.short,trait:s.trait,acc:s.acc,stress:s.stressK,melee:s.melee,kit:s.kit,bay:s.bay,civ:s.civ,look:s.look,uid:s.uid,
@@ -383,7 +383,7 @@ function applySave(S){
   for(const a of S.z){ const i=spawnZ(a[0],a[1],a[3],a[5],a[6],a[2]); if(i>=0){ zhp[i]=a[4]; ztx[i]=a[7]; ztz[i]=a[8]; zwt[i]=a[2]; } }
   // the light and the fog for the time of day
   if(G.phase==='day') setFogTarget('day'); else if(G.phase==='dawn') setFogTarget('dawn'); else { setFogTarget('night'); placeFlares(); }
-  minimapDirty=true; renderCards();
+  minimapDirty=true; renderCards(); applyShopUps();
   bannerShow((G.phase==='day'?'DAY ':'NIGHT ')+G.night,'Picked up where you left off.',2.5);
 }
 

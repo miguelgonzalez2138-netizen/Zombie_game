@@ -4,7 +4,7 @@
 
 /* ---------- game state ---------- */
 const G={shake:0,mist:0.3,ashK:0.55,gust:0,gustT:0,gustTarget:0.2,phase:'day',t:0,night:1,anchorX:200,anchorSpeed:2.6,noise:0,weaponsFree:true,order:'hold',lightsOn:true,
-  fogNear:18,fogFar:75,kickX:0,kickZ:0,hordeBonus:0,dayNoise:0,nextEvent:3,nightT:0,nightType:'pass',waves:[],event:null,baseEmpty:0,dead:false,paused:false,started:false,camH:68,camHTarget:68,afterPass:0,kills:0,peel:0.003,mapOpen:false};
+  fogNear:18,fogFar:75,kickX:0,kickZ:0,hordeBonus:0,dayNoise:0,buffs:{},hotMeal:false,nextEvent:3,nightT:0,nightType:'pass',waves:[],event:null,baseEmpty:0,dead:false,paused:false,started:false,camH:68,camHTarget:68,afterPass:0,kills:0,peel:0.003,mapOpen:false};
 const fogT={near:18,far:75,col:new THREE.Color(0x3a3631),amb:0.62,moon:0.75,ambCol:new THREE.Color(0x66707e),sunCol:new THREE.Color(0xe6e0d2),sunOff:new THREE.Vector3(-55,95,-35),mist:0.3,ash:0.55};
 let time=0;
 
@@ -54,7 +54,7 @@ function startDay(){
   saveGame(true);
 }
 function startDusk(){
-  G.phase='dusk'; G.t=DUSK_LEN; setFogTarget('dusk'); placeFlares();
+  G.phase='dusk'; G.t=DUSK_LEN; setFogTarget('dusk'); placeFlares(); comfyDusk();
   raidCheck();
   // what you did today decides how many come tonight
   G.hordeBonus=Math.min(260,G.hordeBonus*0.8+G.dayNoise*0.1); G.dayNoise=0;
@@ -83,7 +83,7 @@ function randomStreetSpot(away){
     const x=rand(-108,108), z=rand(-142,126), cx=Math.floor(x), cz=Math.floor(z), c=CI(cx,cz);
     const s=MAP.surf[0][c]; if(MAP.bld[0][c]>=0||MAP.block[0][c]!==BLK.FREE) continue;
     if(!(s===SURF.ASPHALT||s===SURF.ALLEY||s===SURF.CONCRETE||s===SURF.GRASS)) continue;
-    if(Math.hypot(x-0,z-15)<away) continue;
+    if(Math.hypot(x-0,z-15)<away||inSafe(x,z)) continue;
     return {x,z};
   }
   return null;
@@ -263,6 +263,8 @@ function useKey(s){
   const wb=nearestFurn(s,f=>f.workbench,1.0); if(wb){ wsToggle(); return; }
   const st=nearestFurn(s,f=>f.stash,1.0); if(st){ invOpen('stash',stash); return; }
   const c=nearestContainer(s); if(c){ invOpen('container',c); return; }
+  if(s.spot){ standUp(s); return; }
+  const seat=atBase(s)?nearSpot(s,1.3):null; if(seat){ sitDown(s,seat); return; }
   if(!nearDamagedSeg(s)){ const e=nearestDoor(s.L,s.x,s.z,1.6); if(e) toggleDoor(e); }
 }
 function act(a,up){
@@ -417,6 +419,8 @@ function updatePlayer(s,dt){
     if(firing&&!sticks.aim) firing=false;
   } else if(s.actT<=0){ const p=aimPoint(s,1.2); s.ang=Math.atan2(p.x-s.x,p.z-s.z); }
   if(s.vault){ stepVault(s,dt); s.status='VAULT'; return; }
+  updateJob(dt,ml>0.2);
+  if(s.spot){ playerComfy(s,ml>0.2,dt); if(s.spot){ s.status=s.sleeping?'ASLEEP':JOB.cur?'WORKING':'RESTING'; if(!JOB.cur&&!s.sleeping&&s.actT<=0){ const p=aimPoint(s,1.2); s.ang=Math.atan2(p.x-s.x,p.z-s.z); } return; } }
   if(s.mounted){ stepMounted(s,dt); const W=WPN.m240;
     if(firing&&!G.mapOpen&&!INV.open&&s.reloadT<=0&&s.fireCD<=0){ if(s.mags.m240>0) fire(s,s.ang,-1); else if(s.trig){ s.trig=false; if(!reload(s)&&AC) SFX.click(0,0.4); } }
     if(!mouseDown) s.trig=true; s.status='ON THE GUN'; return; }
@@ -461,6 +465,7 @@ function updateBuddy(s,dt){
   const p=squad[me];
   if(s.vault){ stepVault(s,dt); return; }
   if(s.scav){ stepScavOut(s,dt); s.status='HEADING OUT'; footsteps(s,dt); return; }
+  if(offDutyBuddy(s,dt)){ footsteps(s,dt); autoHeal(s); return; }
   // where this soldier wants to be, from their own order
   let gx=s.post.x, gz=s.post.z, gL=s.postL||0, fixing=false;
   const o=s.order;
@@ -511,7 +516,7 @@ function updateBuddy(s,dt){
   let da=want-s.ang; while(da>Math.PI) da-=Math.PI*2; while(da<-Math.PI) da+=Math.PI*2; if(s.actT<=0) s.ang+=da*Math.min(1,dt*(s.mounted?4:8));
   if(!G.weaponsFree&&s.stress>85&&s.panic<=0&&bj>=0&&Math.random()<dt*0.45){ s.panic=1.4; radio(nameOf(s)+' is losing it.'); for(const q of squad) if(q!==s&&present(q)&&Math.hypot(q.x-s.x,q.z-s.z)<10) relAdd(q,s,-2); }
   if(s.panic>0) s.panic-=dt;
-  if(!s.mounted) s.status=fixing?'REPAIR':s.resting?'RESTING':({follow:'FOLLOW',fallback:'FALL BACK',watch:'WATCH',heal:'MEDIC',mg:'TO THE GUN',rest:'TO A COT'}[o]||'HOLD');
+  if(!s.mounted) s.status=fixing?'REPAIR':s.resting?'RESTING':({follow:'FOLLOW',fallback:'FALL BACK',watch:'WATCH',heal:'MEDIC',mg:'TO THE GUN',rest:'TO A COT'}[o]||(offDuty()&&s.spot&&s.spot.kind==='watch'?'ON WATCH':'HOLD'));
   if(s.reloadT>0){ if(W.shell&&bj>=0&&td<10&&s.mags[s.wpn]>0) cancelReload(s); else { s.status='RELOAD'; return; } }
   if(s.drawT>0||s.actT>0) return;
   if(!s.mounted&&bj>=0&&td<1.9&&s.meleeCD<=0&&Math.abs(da)<0.8){ if(W.melee) swing(s); else shove(s); return; }
@@ -649,13 +654,15 @@ function updateZombies(dt){
       if(nx>g.x0-0.3&&nx<g.x1+0.3&&nz>g.z0-0.32&&nz<g.z1+0.32){
         const north=z<BZ;
         nz=north?g.z0-0.32:g.z1+0.32;
-        if((north&&tz>BZ)||(!north&&tz<BZ)){
+        if(((north&&tz>BZ)||(!north&&tz<BZ))&&!eventNight()){ boredAtLine(i,dt); }
+        else if((north&&tz>BZ)||(!north&&tz<BZ)){
           g.hp-=2.2*nightMul*dt;
           if(Math.random()<dt*1.6){ chips(nx,0.7,(g.z0+g.z1)/2+(north?-0.4:0.4),2,0,north?1:-1,g.kind==='sand'?0x6b6146:0x8a8f92); if(Math.random()<.4) emit(false,nx,0.6,BZ,0,0.5,0,1.2,0.4,1.8,0x8a8680,0.35); }
           if(g.hp<=0){ g.hp=0; setSegAlive(g,false); bannerShow('LINE BROKEN','They are through on the '+(g.x0<-3?'west':g.x1>3?'east':'center')+' side.',2.4); sThud(0.7); }
         }
       }
     }
+    if(!eventNight()&&inSafe(nx,nz)&&!inSafe(x,z)){ nx=x; nz=z; boredAtLine(i,dt); }
     zx[i]=nx; zz[i]=nz; zl[i]=zA.L;
     // bite
     if(bs>=0&&zcd[i]<=0){
@@ -908,7 +915,11 @@ function drawFX(dt,time){
     else if(!INV.open&&!wsOpen&&(()=>{ const n=nearestNest(pp), wb=nearestFurn(pp,f=>f.workbench,1.0), st=nearestFurn(pp,f=>f.stash,1.0), c=(n||wb||st)?null:nearestContainer(pp);
       let t='', x=0, y=0, z=0;
       const sv=nearestSurvivor(pp);
+      const seat=!pp.spot&&atBase(pp)&&!c&&!wb&&!st&&!n?nearSpot(pp,1.3):null;
       if(sv){ t='E · TALK TO '+sv.d.name.toUpperCase(); x=sv.x; z=sv.z; y=sv.L*LH+1.8; sv.seen=true; }
+      else if(pp.spot&&!JOB.cur){ t=pp.sleeping?'MOVE TO WAKE UP':'MOVE TO GET UP'; x=pp.x; z=pp.z; y=pp.y+2.2; }
+      else if(JOB.cur){ t=JOB.cur.name+' · '+Math.ceil(JOB.cur.secs-JOB.t)+'s'; x=pp.x; z=pp.z; y=pp.y+2.4; }
+      else if(seat){ t=seat.lie?'E · SLEEP':seat.kind==='radio'?'E · SIT BY THE RADIO':'E · SIT BY THE FIRE'; x=seat.x; z=seat.z; y=seat.L*LH+1.3; }
       else if(pp.mounted){ t='E · LEAVE THE GUN'; x=pp.x; z=pp.z; y=pp.y+2.4; }
       else if(n&&!n.manned){ const g=mgSpot(n); t='E · MAN THE GUN'; x=g.x; z=g.z; y=pp.y+1.6; }
       else if(wb){ t='E · WORKBENCH'; x=(wb.x0+wb.x1)/2; z=(wb.z0+wb.z1)/2; y=wb.L*LH+1.4; }
@@ -962,7 +973,7 @@ function stepSim(dt){
     updateSurvivors(dt);
     G.noise=Math.max(0,G.noise-dt*0.35);
     hurtFlash=Math.max(0,hurtFlash-dt);
-    updateProj(dt); updateFires(dt); updateStructs(dt); updateInv(dt);
+    updateProj(dt); updateFires(dt); updateStructs(dt); updateInv(dt); updateComfy(dt);
     updateBlood(dt); updateGibs(dt); updateChips(dt); updateBrass(dt); updateDoors(dt);
     for(const g of segs) updateSegVisual(g);
     updateBirds(dt,time); updateRats(dt,squad[me]); updatePapers(dt,squad[me]); updateAmbience(dt,squad[me]);
@@ -1061,7 +1072,8 @@ function frame(now){
       u.W.position.set(0,0,wz); u.W.rotation.set(wx,wy,wr);
       fatiguePose(s,u); magInHand(s,u);
       const still=sp<0.15&&s.reloadT<=0&&s.swingT<=0&&!(s.i===me&&mouseDown)&&!(s.i!==me&&s.aimJ>=0)&&!s.dodge&&!s.vault;
-      soldierIdle(s,u,d,still);
+      soldierIdle(s,u,d,still&&s.pose!=='lie'&&s.pose!=='cook'&&s.pose!=='work');
+      applyPose(s,u);
       if(s.grabbed){ u.torso.rotation.z+=Math.sin(time*22)*0.12; u.torso.rotation.x-=0.2; }
     }
     const lit=s.lightOn&&!hidden;
@@ -1086,7 +1098,7 @@ function frame(now){
   const kx=sx_+(SET.shake?G.kickX*0.5:0), kz=sz_+(SET.shake?G.kickZ*0.5:0);
   camera.position.set(cx+kx,cy,cz+CAM_BACK+kz); camera.lookAt(cx+kx,p.y,cz-1+kz);
   lowHealth(p,dt||0.016);
-  updateLaser(); updateBuild(); updateArcs(dt||0.016); updateCloth(); if(AC){ updateMusic(dt||0.016); stressAudio(dt,p); } devTick(Math.min(0.5,(now-(frame.lastNow||now))/1000)); frame.lastNow=now;
+  updateLaser(); updateBuild(); updateArcs(dt||0.016); updateCloth(); if(AC){ updateMusic(dt||0.016); stressAudio(dt,p); radioMusic(dt||0.016,radioMusicOn()); } devTick(Math.min(0.5,(now-(frame.lastNow||now))/1000)); frame.lastNow=now;
   if(WHEEL.pending&&!WHEEL.open&&performance.now()-WHEEL.downT>180&&!INV.open&&!wsOpen&&!SQ.open&&!BUILD.on) wheelOpen();
   if(SQ.open&&Math.random()<0.05) renderSQ();
   updateCuts(p);
@@ -1124,6 +1136,7 @@ function lowHealth(p,dt){
 
 /* ---------- boot ---------- */
 placeVignettes();
+applyShopUps();
 applySettings();
 resize();
 camera.position.set(squad[0].x,68,squad[0].z+CAM_BACK);

@@ -666,6 +666,15 @@ function addSeg(x0,x1,kind){
   segs.push(s); lineCells(s,true);
 }
 addSeg(-13,-7,'jersey'); addSeg(-7,-1.5,'car'); addSeg(-1.5,3,'jersey'); addSeg(3,7,'sand'); addSeg(7,13,'jersey');
+// the line is thick now: twice as tough, a wall of HESCO behind it and wire in front
+for(const g of segs){ g.max*=2; g.hp=g.max; }
+{ const tanM=pc(0x9a8a62), meshM=pc(0x6a6048), wireM=new THREE.MeshPhongMaterial({color:0x8a8e92,shininess:40,specular:0x444444});
+  for(let x=-12.5;x<=12.6;x+=1.05){ addStatic(new THREE.BoxGeometry(1.0,1.35,0.95),tanM,x,0.675,BZ+0.42);
+    for(const dx of [-0.5,0,0.5]) addStatic(new THREE.BoxGeometry(0.03,1.36,0.97),meshM,x+dx*0.98,0.68,BZ+0.42);
+    addStatic(new THREE.BoxGeometry(1.02,0.04,0.97),meshM,x,1.36,BZ+0.42); }
+  for(let x=-12.8;x<=12.8;x+=0.42){ const c=addStatic(new THREE.TorusGeometry(0.38,0.018,3,9),wireM,x,0.38,BZ-0.98); c.rotation.y=Math.PI/2+sr(-.2,.2); }
+  for(let x=-12.6;x<=12.6;x+=2.1) addStatic(new THREE.BoxGeometry(0.06,0.9,0.06),meshM,x,0.45,BZ-0.98);
+}
 const matLamp=new THREE.MeshBasicMaterial({color:0xffe2b0});
 addStatic(new THREE.CylinderGeometry(0.06,0.08,3.4,5),matDark,LIGHT_WORK.x,1.7,LIGHT_WORK.z);
 const lampHead=addMesh(new THREE.BoxGeometry(0.7,0.35,0.3),matLamp,LIGHT_WORK.x,3.5,LIGHT_WORK.z-0.1,false,false);

@@ -274,7 +274,7 @@ function swing(s){
   for(let k=0;k<Math.min(W.hits,list.length);k++){
     const j=list[k][1], dx=zx[j]-s.x, dz=zz[j]-s.z, d=list[k][0]||1;
     const crit=Math.random()<W.crit;
-    damageZ(j,crit?220:W.dmg*s.melee*(k?0.7:1),s.x,s.z,W.knock*(k?0.7:1));
+    damageZ(j,crit?220:W.dmg*s.melee*(k?0.7:1)*(G.buffs&&G.buffs.sharp===G.night?1.25:1),s.x,s.z,W.knock*(k?0.7:1));
     if(zst[j]&&zst[j]!==5) zstun[j]=Math.max(zstun[j],W.stun);
     if(AC) (W.edge?SFX.chop:SFX.kick)(pan,0.35);
   }

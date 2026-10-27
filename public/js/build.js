@@ -262,10 +262,12 @@ function renderWS(){
   const row=(r,up)=>{ const done=up&&BASEUP[r.id], locked=r.needs&&!BASEUP[r.needs], can=!done&&!locked&&day&&affordable(r.cost)&&G.t>r.hours*HOUR;
     return `<div class="wr${done?' done':''}"><div><b>${r.name}</b>${r.desc?`<small>${r.desc}</small>`:''}</div><em>${done?'DONE':locked?'NEEDS TOOLS':costStr(r.cost)+' · '+r.hours+'H'}</em><button data-r="${r.id}" data-up="${up?1:0}" ${can?'':'disabled'}>${up?'BUILD':'MAKE'}</button></div>`; };
   wsEl.innerHTML=`<div class="wsbox"><div class="ttl">WORKBENCH · FERRETERIA MORALES</div>
-    <div class="pools"><span>SCRAP <b>${SUP.scrap}</b></span><span>FUEL <b>${SUP.fuel}</b></span><span>FOOD <b>${SUP.food}</b></span><span>WATER <b>${SUP.water}</b></span><span>${day?`DAYLIGHT <b>${hrs}h ${String(mins).padStart(2,'0')}m</b>`:'<b class="bad">TOO DARK TO WORK</b>'}</span></div>
+    <div class="pools"><span>SCRAP <b>${SUP.scrap}</b></span><span>FUEL <b>${SUP.fuel}</b></span><span>FOOD <b>${SUP.food}</b></span><span>WATER <b>${SUP.water}</b></span><span>${day?`DAYLIGHT <b>${hrs}h ${String(mins).padStart(2,'0')}m</b>`:'<b>NIGHT · DAYLIGHT JOBS WAIT FOR MORNING</b>'}</span></div>
     <div class="sub">MAKE</div>${RECIPES.map(r=>row(r,false)).join('')}
     <div class="sub">UPGRADES</div>${UPGRADES.map(r=>row(r,true)).join('')}
-    <div class="hint">Every job burns daylight. E or Esc to step away.</div></div>`;
+    ${typeof jobsHTML==='function'?jobsHTML(day):''}
+    <div class="hint">Daylight jobs burn daylight. Night jobs keep you at the bench a while. E or Esc to step away.</div></div>`;
+  wsEl.querySelectorAll('button[data-j]').forEach(b=>b.onclick=()=>startJob(b.dataset.j));
   wsEl.querySelectorAll('button[data-r]').forEach(b=>b.onclick=()=>{
     const up=b.dataset.up==='1', r=(up?UPGRADES:RECIPES).find(x=>x.id===b.dataset.r);
     if(!affordable(r.cost)||G.phase!=='day') return;
