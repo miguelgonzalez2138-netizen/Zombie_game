@@ -27,9 +27,30 @@ const texChain=(()=>{ const c=document.createElement('canvas'); c.width=c.height
 const matExt=cutPatch(phong({map:texBrick,vertexColors:true}));
 const matPlain=cutPatch(phong({vertexColors:true}));
 const matFloorV=cutPatch(phong({map:texFloor,vertexColors:true}));
-const matRoofV=cutPatch(phong({map:texRoof,vertexColors:true}));
+const matRoofV=weatherPatch(cutPatch(phong({map:texRoof,vertexColors:true})));
 const matFacV=texFacade.map(t=>cutPatch(phong({map:t,vertexColors:true})));
 const matGroundV=new THREE.MeshPhongMaterial({map:texGrain,vertexColors:true,specular:0x1c2024,shininess:22});
+// weather on the ground and roofs: snow settles on anything facing up (in patches), rain darkens and adds shine
+const WEATHER_U={uSnow:{value:0},uWet:{value:0}};
+function weatherPatch(m){
+  const prev=m.onBeforeCompile;
+  m.onBeforeCompile=sh=>{ if(prev) prev(sh);
+    sh.uniforms.uSnow=WEATHER_U.uSnow; sh.uniforms.uWet=WEATHER_U.uWet;
+    sh.fragmentShader='uniform float uSnow; uniform float uWet;\n'+sh.fragmentShader
+      .replace('#include <color_fragment>',`#include <color_fragment>
+  #ifdef USE_FOG
+  { vec3 wn=normalize(cross(dFdx(vFogWorld),dFdy(vFogWorld))); float up=smoothstep(0.75,0.95,abs(wn.y));
+    vec2 sp=vFogWorld.xz*0.35; vec2 si=floor(sp), sf=fract(sp); sf=sf*sf*(3.0-2.0*sf);
+    float h00=fract(sin(dot(si,vec2(127.1,311.7)))*43758.5), h10=fract(sin(dot(si+vec2(1,0),vec2(127.1,311.7)))*43758.5), h01=fract(sin(dot(si+vec2(0,1),vec2(127.1,311.7)))*43758.5), h11=fract(sin(dot(si+vec2(1,1),vec2(127.1,311.7)))*43758.5);
+    float n=mix(mix(h00,h10,sf.x),mix(h01,h11,sf.x),sf.y);
+    float cover=smoothstep(0.55-uSnow*0.45,0.75-uSnow*0.45,n);
+    diffuseColor.rgb=mix(diffuseColor.rgb*(1.0-0.3*uWet),vec3(0.76,0.78,0.82),cover*up*min(1.0,uSnow*1.2)*0.88); }
+  #endif`)
+      .replace('#include <specularmap_fragment>','#include <specularmap_fragment>\n  specularStrength*=1.0+uWet*3.5;');
+  };
+  return m;
+}
+weatherPatch(matGroundV);
 
 /* ---------- ground ---------- */
 const SURF_COL={[SURF.ASPHALT]:[.17,.18,.2],[SURF.CONCRETE]:[.42,.43,.44],[SURF.GRASS]:[.2,.25,.16],[SURF.DIRT]:[.27,.24,.2],[SURF.GRAVEL]:[.36,.35,.32],
@@ -257,7 +278,63 @@ function fenceEdge(C,e,gate){
   if(gate) edgeList.gate.push(e); else edgeList.fence.push(e);
 }
 
+/* ---------- variety: painted fronts, cornices, stoops, awning-free porches, rooftop junk ---------- */
+const PAINT=[[0.66,0.3,0.27],[0.3,0.44,0.56],[0.5,0.58,0.36],[0.78,0.6,0.3],[0.8,0.78,0.72],[0.56,0.36,0.52],[0.36,0.56,0.52],[0.86,0.52,0.36]];
+const CREAM=[[0.78,0.7,0.52],[0.74,0.66,0.5],[0.38,0.26,0.22],[0.3,0.24,0.22]];
+for(const B of MAP.blds){ if(!B.enter||B.name) continue;
+  const r=R2(); if(r<0.28) { B.brick=PAINT[Math.floor(R2()*PAINT.length)]; B.painted=true; } else if(r<0.45) B.brick=CREAM[Math.floor(R2()*CREAM.length)];
+  B.style=Math.floor(R2()*4); }
+// an n-sided prism (tanks, pipes) out of quads, so it stays in the merged, cut-aware geometry
+function prism(G,cx,cz,r,y0,y1,n,col,bid,cone){
+  for(let k=0;k<n;k++){ const a0=k/n*Math.PI*2, a1=(k+1)/n*Math.PI*2, x0=cx+Math.cos(a0)*r, z0=cz+Math.sin(a0)*r, x1=cx+Math.cos(a1)*r, z1=cz+Math.sin(a1)*r, am=(a0+a1)/2;
+    G.quad([x1,y0,z1],[x0,y0,z0],[x0,y1,z0],[x1,y1,z1],Math.cos(am),0,Math.sin(am),tint(col,0.8+0.2*Math.cos(am-0.8)),bid);
+    if(cone) G.quad([x0,y1,z0],[x1,y1,z1],[cx,y1+cone,cz],[cx,y1+cone,cz],Math.cos(am),0.6,Math.sin(am),tint(col,0.7),bid); }
+}
+function roofJunk(C,x0,z0,x1,z1,y,bid,big){
+  const W=x1-x0, D=z1-z0, pick=a=>a[Math.floor(R2()*a.length)];
+  const fits=(w,d)=>W>w+2&&D>d+2, spot=(w,d)=>[x0+1+R2()*(W-w-2),z0+1+R2()*(D-d-2)];
+  // AC units with a grille, vent stacks, chimneys, a skylight, sometimes a dish
+  const nAC=Math.floor(R2()*3)+(big?1:0);
+  for(let i=0;i<nAC;i++){ if(!fits(1.4,1.1)) break; const [x,z]=spot(1.4,1.1);
+    C.plain.box(x,y,z,x+1.3,y+0.9,z+1.0,pick([[.62,.62,.6],[.52,.53,.54],[.7,.68,.62]]),bid); C.plain.box(x+0.15,y+0.9,z+0.15,x+1.15,y+0.95,z+0.85,[.2,.2,.21],bid); }
+  for(let i=0;i<1+Math.floor(R2()*3);i++){ if(!fits(.3,.3)) break; const [x,z]=spot(.3,.3); prism(C.plain,x,z,0.09+R2()*0.06,y,y+0.5+R2()*0.9,6,[.3,.3,.31],bid); }
+  if(R2()<.6&&fits(.8,.6)){ const [x,z]=spot(.8,.6); C.ext.box(x,y,z,x+0.7,y+1.6+R2()*0.8,z+0.5,[.48,.3,.25],bid); }
+  if(R2()<.4&&fits(1.6,1.2)){ const [x,z]=spot(1.6,1.2); C.plain.box(x,y,z,x+1.5,y+0.35,z+1.1,[.55,.56,.56],bid); C.plain.box(x+0.1,y+0.35,z+0.1,x+1.4,y+0.4,z+1.0,[.12,.16,.2],bid); }
+  if(R2()<.25&&fits(.8,.8)){ const [x,z]=spot(.8,.8); C.plain.box(x+.35,y,z+.35,x+.45,y+0.8,z+.45,[.3,.3,.3],bid); C.plain.box(x+.05,y+0.75,z+.1,x+.75,y+0.8,z+.75,[.78,.78,.76],bid); }
+  // the Chicago water tower, on the big ones
+  if(big&&R2()<.45&&fits(4,4)){ const [x,z]=spot(4,4), cx=x+2, cz=z+2;
+    for(const [a,b] of [[-1.2,-1.2],[1.2,-1.2],[-1.2,1.2],[1.2,1.2]]) C.plain.box(cx+a-.08,y,cz+b-.08,cx+a+.08,y+2.6,cz+b+.08,[.24,.22,.2],bid);
+    C.plain.box(cx-1.4,y+2.5,cz-1.4,cx+1.4,y+2.65,cz+1.4,[.3,.27,.24],bid);
+    prism(C.plain,cx,cz,1.5,y+2.65,y+5.2,10,[.46,.36,.26],bid,1.4); }
+}
 for(const B of MAP.blds) renderBuilding(B);
+for(const B of MAP.blds){
+  const cx=(B.x0+B.x1)/2, cz=(B.z0+B.z1)/2, C=chunkOf(cx,cz), bid=B.id;
+  if(!B.enter){ roofJunk(C,B.x0,B.z0,B.x1,B.z1,B.h,bid,true); continue; }
+  const floorsH=B.floors===1?B.wallH:LH, y=B.floors*floorsH;
+  if(!B.roof&&B.kind!=='church') roofJunk(C,B.x0,B.z0,B.x1,B.z1,y+0.05,bid,(B.x1-B.x0)*(B.z1-B.z0)>500);
+  if(B.name&&B.kind!=='store'&&B.kind!=='flat') continue;
+  // a cornice along the top of every wall, in one of a few styles
+  const tr=B.trim, st=B.style||0;
+  if(st>0&&!B.roof){ const o=st===2?0.35:0.22, h=st===3?0.5:0.3;
+    for(const [a,b,c2,d] of [[B.x0-o,B.z0-o,B.x1+o,B.z0],[B.x0-o,B.z1,B.x1+o,B.z1+o],[B.x0-o,B.z0,B.x0,B.z1],[B.x1,B.z0,B.x1+o,B.z1]]) C.plain.box(a,y+0.6-h,b,c2,y+0.6,d,tr,bid);
+    if(st===2) for(let x=B.x0+0.5;x<B.x1;x+=1.2) for(const zz of [B.z0-0.3,B.z1]) C.plain.box(x,y+0.05,zz,x+0.18,y+0.3,zz+0.3,tint(tr,0.85),bid); }
+  // a band between the floors on two-flats
+  if(B.floors>=2&&(st===1||st===3)) for(let L=1;L<B.floors;L++){ const yy=L*LH; for(const [a,b,c2,d] of [[B.x0-.12,B.z0-.12,B.x1+.12,B.z0],[B.x0-.12,B.z1,B.x1+.12,B.z1+.12]]) C.plain.box(a,yy-0.1,b,c2,yy+0.1,d,tint(tr,0.9),bid); }
+  // stoops and porches at the front doors
+  for(const e of B.doors){ if(ED.L[e]!==0||ED.k[e]===EK.GATE) continue;
+    const m=edgeMid(e), d=ED.d[e], cA=d===0?[Math.floor(m.x-0.5),Math.floor(m.z)]:[Math.floor(m.x),Math.floor(m.z-0.5)], cB=d===0?[Math.floor(m.x+0.5),Math.floor(m.z)]:[Math.floor(m.x),Math.floor(m.z+0.5)];
+    const outIsB=MAP.bld[0][CI(cB[0],cB[1])]!==bid, oc=outIsB?cB:cA, ox=d===0?(outIsB?1:-1):0, oz=d===1?(outIsB?1:-1):0;
+    if(!inMap(oc[0],oc[1])||MAP.block[0][CI(oc[0],oc[1])]!==BLK.FREE) continue;
+    const kind=B.kind==='flat'?(st%2?'porch':'stoop'):'step';
+    const px=m.x+ox*0.25, pz=m.z+oz*0.25, w=kind==='step'?0.55:0.75;
+    if(d===0){ C.plain.box(px-0.25,0,pz-w,px+0.25,0.16,pz+w,[.5,.5,.48],bid); }
+    else { C.plain.box(px-w,0,pz-0.25,px+w,0.16,pz+0.25,[.5,.5,.48],bid); }
+    if(kind==='porch'){ const hx=m.x+ox*0.75, hz=m.z+oz*0.75, a=d===0?[hx-0.5,m.z-1.1,hx+0.5,m.z+1.1]:[m.x-1.1,hz-0.5,m.x+1.1,hz+0.5];
+      C.plain.box(a[0],2.55,a[1],a[2],2.68,a[3],tint(tr,0.9),bid);
+      for(const [px2,pz2] of d===0?[[hx+ox*0.4,m.z-1],[hx+ox*0.4,m.z+0.9]]:[[m.x-1,hz+oz*0.4],[m.x+0.9,hz+oz*0.4]]) C.plain.box(px2-.05,0,pz2-.05,px2+.05,2.55,pz2+.05,tint(tr,0.85),bid); }
+  }
+}
 renderEdges();
 for(const [k,c] of chunks){
   const add=(gb,m,cast=true)=>{ if(gb.empty) return; const mesh=new THREE.Mesh(gb.build(),m); mesh.castShadow=cast; mesh.receiveShadow=true; scene.add(mesh); };

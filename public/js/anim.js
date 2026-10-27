@@ -6,19 +6,21 @@
 
 /* ---------- deaths: a little physics instead of one canned fall ---------- */
 // per zombie: vx vy vz h pitch pitchV roll rollV armL armLV armR armRV legL legLV legR legRV head headV ox oz
-const RD=new Float32Array(MAXZ*20), zlastK=new Float32Array(MAXZ), zblast=new Uint8Array(MAXZ);
+const RD=new Float32Array(MAXZ*20), zlastK=new Float32Array(MAXZ), zblast=new Uint8Array(MAXZ), zspurt=new Float32Array(MAXZ);
 function ragdollStart(i){
   const o=i*20, k=Math.min(2.5,zlastK[i]||0.2), blast=zblast[i];
   const dx=zdx[i]||Math.sin(zang[i]+Math.PI), dz=zdz[i]||Math.cos(zang[i]+Math.PI);
-  RD[o]=dx*(0.4+k*2.2)*rand(.8,1.2); RD[o+2]=dz*(0.4+k*2.2)*rand(.8,1.2); RD[o+1]=blast?rand(3.5,6.5):rand(0.2,1.0)+k*0.6;
-  RD[o+3]=0; RD[o+4]=0; RD[o+5]=zfall[i]*rand(2.5,4.5)*(1+k*0.6); RD[o+6]=0; RD[o+7]=rand(-2.5,2.5)*(1+k*0.3);
-  for(let m=8;m<18;m+=2){ RD[o+m]=0; RD[o+m+1]=rand(-7,7)*(1+k*0.4); }
+  RD[o]=dx*(0.8+k*3.6)*rand(.85,1.25); RD[o+2]=dz*(0.8+k*3.6)*rand(.85,1.25); RD[o+1]=blast?rand(5,9):rand(0.6,1.8)+k*1.1;
+  RD[o+3]=0; RD[o+4]=0; RD[o+5]=zfall[i]*rand(4,7)*(1+k*0.8); RD[o+6]=0; RD[o+7]=rand(-4.5,4.5)*(1+k*0.5);
+  for(let m=8;m<18;m+=2){ RD[o+m]=0; RD[o+m+1]=rand(-12,12)*(1+k*0.6); }
+  zspurt[i]=k>0.3||blast?rand(0.4,0.9):0.2;
   RD[o+18]=0; RD[o+19]=0;
   zblast[i]=0; zlastK[i]=0;
 }
 const _rp={x:0,z:0};
 function ragdollStep(i,dt){
   const o=i*20, f=zfall[i]||1, T=zdie[i];
+  if(zspurt[i]>0){ zspurt[i]-=dt; if(Math.random()<dt*25) bleed(zx[i]+RD[o+18],zyv[i]+0.8+RD[o+3],zz[i]+RD[o+19],RD[o]*0.3,RD[o+2]*0.3,2,2.2,zyv[i]); }
   // root: thrown, falls, bounces, slides to a stop against walls
   RD[o+1]-=14*dt; RD[o+3]+=RD[o+1]*dt;
   if(RD[o+3]<0){ RD[o+3]=0; if(Math.abs(RD[o+1])>1.2){ for(let m=9;m<18;m+=2) RD[o+m]+=rand(-4,4); } RD[o+1]*=-0.25; RD[o]*=0.55; RD[o+2]*=0.55; }
@@ -34,7 +36,7 @@ function ragdollStep(i,dt){
   RD[o+7]*=Math.pow(0.1,dt); RD[o+6]+=RD[o+7]*dt; RD[o+6]=clamp(RD[o+6],-0.9,0.9);
   // limbs: floppy springs toward a sprawl
   const rest=[-1.4*f-0.6,-0.5*f-0.3,0.35,-0.45,0.4*f];
-  for(let m=0;m<5;m++){ const a=o+8+m*2; RD[a+1]+=((rest[m]-RD[a])*18-RD[a+1]*4.5)*dt; RD[a]+=RD[a+1]*dt; }
+  for(let m=0;m<5;m++){ const a=o+8+m*2; RD[a+1]+=((rest[m]-RD[a])*14-RD[a+1]*3.2)*dt; RD[a]+=RD[a+1]*dt; }
   const settled=T>0.9&&RD[o+3]===0&&Math.abs(RD[o+5])<0.3&&Math.hypot(RD[o],RD[o+2])<0.15;
   return settled||T>2.6;
 }
@@ -75,17 +77,21 @@ function poseDown(i){
 
 /* ---------- grabs: it gets hold of you and pulls you in ---------- */
 const zgrab=new Int8Array(MAXZ), zgrabT=new Float32Array(MAXZ);
-function startGrab(i,k){ zgrab[i]=k+1; zgrabT[i]=1.4; const s=squad[k]; if(s.i===me) radioLine('It\'s got you. Shove it off (V).'); }
+function startGrab(i,k){ zgrab[i]=k+1; zgrabT[i]=1.4; const s=squad[k];
+  const dx=s.x-zx[i], dz=s.z-zz[i], d=Math.hypot(dx,dz)||1; s.vx+=dx/d*2.2; s.vz+=dz/d*2.2;
+  if(s.i===me){ radioLine('It\'s got you. Shove it off (V).'); G.shake=Math.max(G.shake,0.6); G.kickX+=dx/d*0.7; G.kickZ+=dz/d*0.7; hurtFlash=Math.max(hurtFlash,0.18); }
+  zSound(i,'shriek'); }
 function releaseGrab(i){ zgrab[i]=0; zgrabT[i]=0; }
 function poseGrab(i,s,dt){
-  const R=zr, legY=lookZ(i), t=time*9+i;
-  R.root.position.set(zx[i],zyv[i],zz[i]); R.root.rotation.set(0,zang[i],Math.sin(t)*0.08); R.root.scale.setScalar(zsc[i]);
+  const R=zr, legY=lookZ(i), t=time*16+i, jerk=Math.sin(t)*Math.sin(t*0.37);
+  R.root.position.set(zx[i]+Math.sin(zang[i])*jerk*0.12,zyv[i],zz[i]+Math.cos(zang[i])*jerk*0.12); R.root.rotation.set(0.15*jerk,zang[i],Math.sin(t)*0.16); R.root.scale.setScalar(zsc[i]);
   R.hip.position.set(0,0.92*legY,0); R.hip.rotation.set(0,Math.sin(t*0.5)*0.15,0);
-  R.torso.rotation.set(0.55+Math.sin(t)*0.08,0,Math.sin(t*0.7)*0.1);
-  R.armL.rotation.set(-1.75+Math.sin(t)*0.2,0,0.3); R.armR.rotation.set(-1.65-Math.sin(t)*0.2,0,-0.3);
+  R.torso.rotation.set(0.7+jerk*0.25,0,Math.sin(t*0.7)*0.2);
+  R.armL.rotation.set(-1.85+Math.sin(t)*0.4,0,0.45+jerk*0.2); R.armR.rotation.set(-1.75-Math.sin(t)*0.4,0,-0.45-jerk*0.2);
   R.legL.rotation.set(0.35,0,0); R.legR.rotation.set(-0.25,0,0);
-  R.head.rotation.set(0.2+Math.sin(t*1.3)*0.15,0,ztilt[i]);
+  R.head.rotation.set(0.35+Math.sin(t*1.3)*0.35,Math.sin(t*0.8)*0.3,ztilt[i]);
   writeZ(i);
+  if(Math.random()<dt*6) bleed(s.x,1.3,s.z,s.x-zx[i],s.z-zz[i],1,0.8,s.y);
 }
 
 /* ---------- feeding: where bodies are, the idle dead crouch and eat ---------- */

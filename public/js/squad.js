@@ -309,7 +309,7 @@ addEventListener('pointermove',wheelMove);
 const sideEl=document.getElementById('squad');
 let cardEls=[];
 function renderCards(){
-  sideEl.innerHTML=squad.map(s=>`<div class="card" data-i="${s.i}"><div class="n"><span>${s.short}</span><i></i></div><div class="t"><span class="ro"></span><span class="st">HOLD</span></div><div class="bar"><b></b></div><div class="bar s"><b></b></div><div class="bar f"><b></b></div><div class="w"></div><div class="a"></div></div>`).join('');
+  sideEl.innerHTML=squad.map(s=>`<div class="card" data-i="${s.i}" style="border-top-color:${SQUAD_CSS[s.i%8]}"><div class="n"><span>${s.short}</span><i></i></div><div class="t"><span class="ro"></span><span class="st">HOLD</span></div><div class="bar"><b></b></div><div class="bar s"><b></b></div><div class="bar f"><b></b></div><div class="w"></div><div class="a"></div></div>`).join('');
   cardEls=[...sideEl.querySelectorAll('.card')].map(c=>({c,lv:c.querySelector('.n i'),ro:c.querySelector('.ro'),st:c.querySelector('.st'),hp:c.querySelectorAll('.bar b')[0],str:c.querySelectorAll('.bar b')[1],fat:c.querySelectorAll('.bar b')[2],w:c.querySelector('.w'),a:c.querySelector('.a')}));
   sideEl.querySelectorAll('.card').forEach(c=>c.onclick=()=>{ const s=squad[+c.dataset.i]; if(present(s)&&s.i!==me){ squad[me].lightOn=G.weaponsFree; me=s.i; s.lightOn=true; } });
 }

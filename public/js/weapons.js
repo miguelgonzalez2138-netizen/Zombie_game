@@ -451,11 +451,12 @@ const fireLights=[0,1].map(()=>{ const l=new THREE.PointLight(0xff7a2a,0,14,2); 
 let boomT=0;
 function explode(x,y,z,L){
   const R=6.5, ps=squad[me], dp=Math.hypot(x-ps.x,z-ps.z);
-  boomLight.position.set(x,y+1.2,z); boomLight.intensity=7; boomT=0.3;
+  boomLight.position.set(x,y+1.2,z); boomLight.intensity=10; boomT=0.4;
   FL.boom.x=x; FL.boom.y=y+1; FL.boom.z=z; FL.boom.k=1.4;
-  for(let k=0;k<16;k++) emit(true,x,y+0.4,z,rand(-5,5),rand(1,5),rand(-5,5),rand(.2,.45),rand(.8,1.6),0.2,Math.random()<.5?0xffa040:0xffe0a0,1);
-  for(let k=0;k<12;k++) emit(false,x+rand(-1,1),y+0.5,z+rand(-1,1),rand(-1.5,1.5),rand(0.6,2),rand(-1.5,1.5),rand(3,6),rand(1,1.6),rand(4,7),0x5a5856,0.5);
-  chips(x,y+0.3,z,24,0,0,0x34373b); scorch(x,z,y,1.6);
+  for(let k=0;k<30;k++) emit(true,x,y+0.4,z,rand(-8,8),rand(1,8),rand(-8,8),rand(.25,.6),rand(1.2,2.6),0.3,Math.random()<.5?0xffa040:0xffe0a0,1);
+  emit(true,x,y+1,z,0,0.5,0,0.25,2,7,0xfff0c0,1);
+  for(let k=0;k<20;k++) emit(false,x+rand(-1.5,1.5),y+0.5,z+rand(-1.5,1.5),rand(-2.5,2.5),rand(0.8,3),rand(-2.5,2.5),rand(4,8),rand(1.4,2.2),rand(5,9),0x4a4846,0.55);
+  chips(x,y+0.3,z,40,0,0,0x34373b); scorch(x,z,y,2.2);
   for(let i=0;i<MAXZ;i++){ if(!zst[i]||zst[i]===5||zl[i]!==L) continue;
     const dx=zx[i]-x, dz=zz[i]-z, d=Math.hypot(dx,dz); if(d>R) continue;
     if(d>0.8&&!los(L,x,z,zx[i],zz[i])) continue;
@@ -470,7 +471,7 @@ function explode(x,y,z,L){
     for(const e of [MAP.eE[L][c],MAP.eS[L][c]]){ if(!e) continue; const m=edgeMid(e), d=Math.hypot(m.x-x,m.z-z);
       if(ED.t[e]===ET.WIN&&d<7) breakGlass(e); else if(d<3.2) damageEdge(e,320*(1-d/3.2)); } }
   if(AC) SFX.boom(clamp((x-ps.x)/25,-1,1),1/(1+dp*0.05)); caption('explosion',x,z);
-  G.shake=Math.max(G.shake,1.1/(1+dp*0.07));
+  G.shake=Math.max(G.shake,1.4/(1+dp*0.06));
   if(dp<12){ G.kickX+=(ps.x-x)/(dp||1)*0.6; G.kickZ+=(ps.z-z)/(dp||1)*0.6; }
   makeNoise(x,z,85,L);
   scareBirds(x,z,80);
@@ -480,15 +481,16 @@ function shatter(p,x,z){
   scene.remove(p.m);
   const y=p.L*LH, ps=squad[me], d=Math.hypot(x-ps.x,z-ps.z);
   if(AC) SFX.bottle(clamp((x-ps.x)/20,-1,1),0.6/(1+d*0.06));
-  fires.push({x,z,y,L:p.L,r:2.6,t:10,max:10}); scorch(x,z,y,2.2);
+  fires.push({x,z,y,L:p.L,r:3.2,t:12,max:12}); scorch(x,z,y,2.6);
   for(let k=0;k<12;k++) emit(true,x,y+0.3,z,rand(-3,3),rand(1,3),rand(-3,3),rand(.3,.6),rand(.8,1.4),0.2,0xff8a3a,1);
   makeNoise(x,z,18,p.L);
 }
 function updateFires(dt){
-  boomT-=dt; boomLight.intensity=boomT>0?7*boomT/0.3:0; FL.boom.k=Math.max(0,FL.boom.k-dt*4);
+  boomT-=dt; boomLight.intensity=boomT>0?10*boomT/0.4:0; FL.boom.k=Math.max(0,FL.boom.k-dt*4);
   for(let k=fires.length-1;k>=0;k--){
     const f=fires[k]; f.t-=dt; const life=f.t/f.max, r=f.r*(0.6+0.4*Math.min(1,life*2));
-    for(let n=0;n<3;n++){ const a=rand(0,6.28), rr=Math.sqrt(Math.random())*r; fireAt(f.x+Math.sin(a)*rr,f.y+0.15,f.z+Math.cos(a)*rr,30*life+6,dt,n===0); }
+    for(let n=0;n<5;n++){ const a=rand(0,6.28), rr=Math.sqrt(Math.random())*r; fireAt(f.x+Math.sin(a)*rr,f.y+0.15,f.z+Math.cos(a)*rr,45*life+8,dt,n<2); }
+    if(Math.random()<dt*12) emit(true,f.x+rand(-r,r)*0.5,f.y+0.3,f.z+rand(-r,r)*0.5,rand(-.3,.3),rand(2,3.5),rand(-.3,.3),rand(.5,.9),rand(1.2,1.8),0.3,0xff9a3a,0.85);
     eachNear(f.x,f.z,r+0.5,j=>{ if(zl[j]!==f.L||zst[j]===5) return; if(Math.hypot(zx[j]-f.x,zz[j]-f.z)<r) zburn[j]=Math.max(zburn[j],5); });
     if(f.t<=0) fires.splice(k,1);
   }
@@ -496,7 +498,7 @@ function updateFires(dt){
   const ps=squad[me];
   const near=fires.slice().sort((a,b)=>Math.hypot(a.x-ps.x,a.z-ps.z)-Math.hypot(b.x-ps.x,b.z-ps.z));
   for(let k=0;k<2;k++){ const f=near[k], l=fireLights[k], fl=k?FL.fire1:FL.fire0;
-    if(f){ l.position.set(f.x,f.y+1.2,f.z); l.intensity=1.8*Math.min(1,f.t/2)*(0.8+Math.random()*0.3); fl.x=f.x; fl.y=f.y+0.8; fl.z=f.z; fl.k=0.5*Math.min(1,f.t/2); }
+    if(f){ l.position.set(f.x,f.y+1.4,f.z); l.intensity=2.8*Math.min(1,f.t/2)*(0.8+Math.random()*0.3); fl.x=f.x; fl.y=f.y+0.8; fl.z=f.z; fl.k=0.5*Math.min(1,f.t/2); }
     else { l.intensity=0; fl.k=0; } }
 }
 // burning dead: hurts them, they keep walking, and they light up whoever they bump into

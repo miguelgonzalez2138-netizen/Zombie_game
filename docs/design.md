@@ -347,3 +347,43 @@ Collected from Miguel's answers. Where a pillar was skipped, it is Claude's call
 7. Flashing: No
 8. Gore toggle: No
 9. Sound cues: Yes
+## Graphics round 2 (after playing it running smooth)
+1. Overall: Close
+2. Biggest problem: UI (details pending)
+3–9. Pixel size, character res, zoom, night darkness, fog night/day, mist: Keep
+10. Flashlight: Subtler
+11. Light glow: Keep
+12. Dawn & dusk: Warmer / more orange
+13. Day color: Warmer
+14. Rain: Heavier
+15. Snow: Heavier flakes
+16. Snow on ground: Yes, builds up visibly
+17. Wet streets: Yes
+18. Lightning: Bigger
+19. Ash: Keep
+20. Cutaway: Keep as is
+21. Interiors: Right
+22. Building variety: Need more variety
+23. Pilsen flavor: Fine as is
+24. Street clutter: Keep
+25. Roofs: More detail
+26. Lit windows: More
+27. Bodies: Keep
+28. Soldier readability: Barely — needs work
+29. Recruit look: Good
+30. Animations: Exaggerate more
+31. Smoking: Love it
+32. Reload anim: More detail
+33–35. Name tags, laser, zombie read: Keep
+36. Ragdoll: More violent
+37. Knockdowns: Keep
+38. Grabs: More visible / violent
+39. Zombie variety: More outfits, body types, damage states
+40. Glowing eyes: No
+41. Blood: More
+42. Gibs: More often
+43. Explosions: Bigger
+44. Fire: Bigger / brighter
+45. Muzzle flash: Bigger
+46–47. Tracers, melee arcs: Keep
+49–50. Squad cards, keys panel: Keep

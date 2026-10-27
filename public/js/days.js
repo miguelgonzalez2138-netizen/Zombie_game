@@ -23,7 +23,7 @@ const STATS={kills:0,shots:0,heads:0,quiet:0,melee:0,searched:0,built:0,crafted:
 const NIGHT_LOG={kills:0,lost:[],hurt:new Set(),lineLost:0,type:''};
 
 /* ---------- weather: late fall going into winter ---------- */
-const WX={kind:'clear',k:0,snow:0,flash:0,thunder:0,gustK:0};
+const WX={kind:'clear',k:0,snow:0,wet:0,flash:0,thunder:0,gustK:0};
 const WX_NAME={clear:'Clear',rain:'Rain',snow:'Snow',wind:'Wind',storm:'Storm',fog:'Heavy fog'};
 function rollWeather(){
   const winter=clamp((G.night-2)/10,0,1);
@@ -37,20 +37,24 @@ function rollWeather(){
 function wxNoise(){ return WX.kind==='rain'?0.75:WX.kind==='storm'?0.6:WX.kind==='snow'?0.8:WX.kind==='wind'?1.2:1; }
 function wxSight(){ return WX.kind==='fog'?0.7:WX.kind==='storm'?0.8:WX.kind==='snow'?0.9:1; }
 function wxSpeed(s){ return WX.snow>0.4&&!indoors(s.L,s.x,s.z)?0.92:1; }
-const drops=[]; for(let i=0;i<420;i++) drops.push({x:Math.random(),y:Math.random(),z:rand(.4,1.4),p:Math.random()*6});
+const drops=[]; for(let i=0;i<900;i++) drops.push({x:Math.random(),y:Math.random(),z:rand(.4,1.4),p:Math.random()*6});
 function updateWeather(dt){
   const want=WX.kind==='clear'||WX.kind==='wind'||WX.kind==='fog'?0:1;
   WX.k=lerp(WX.k,want,Math.min(1,dt*0.4));
-  if(WX.kind==='snow') WX.snow=Math.min(1,WX.snow+dt*0.004); else WX.snow=Math.max(0,WX.snow-dt*(WX.kind==='rain'?0.01:0.002));
-  if(WX.kind==='storm'){ WX.thunder-=dt; if(WX.thunder<=0){ WX.thunder=rand(8,22); WX.flash=1; const d=rand(0.3,1.6); if(AC) setTimeout(()=>SFX.boom(rand(-1,1),0.35/d),d*1000); } }
+  if(WX.kind==='snow') WX.snow=Math.min(1,WX.snow+dt*0.006); else WX.snow=Math.max(0,WX.snow-dt*(WX.kind==='rain'||WX.kind==='storm'?0.008:0.0015));
+  if(WX.kind==='rain'||WX.kind==='storm') WX.wet=Math.min(1,WX.wet+dt*0.05); else WX.wet=Math.max(0,WX.wet-dt*0.004);
+  WEATHER_U.uSnow.value=WX.snow; WEATHER_U.uWet.value=WX.wet*(1-WX.snow);
+  if(WX.kind==='storm'){ WX.thunder-=dt; if(WX.thunder<=0){ WX.thunder=rand(7,18); WX.flash=1.6; WX.flash2=rand(0.15,0.35); const d=rand(0.3,1.6); if(AC) setTimeout(()=>{ SFX.boom(rand(-1,1),0.55/d); SFX.boom(rand(-1,1),0.25/d); },d*1000); }
+    if(WX.flash2>0){ WX.flash2-=dt; if(WX.flash2<=0) WX.flash=Math.max(WX.flash,1.1); } }
   WX.flash=Math.max(0,WX.flash-dt*3);
   if(WX.kind==='wind'||WX.kind==='storm') G.gustTarget=Math.max(G.gustTarget,0.6);
   if(AC&&amb.rain) amb.rain.g.gain.setTargetAtTime((WX.kind==='rain'||WX.kind==='storm')?0.05*WX.k*(indoors(squad[me].L,squad[me].x,squad[me].z)?0.5:1):0,AC.currentTime,0.8);
 }
 function drawWeather(ctx,dt,inside){
   if(WX.k<0.02) return;
-  const n=Math.round(drops.length*WX.k*(inside?0.25:1)), snow=WX.kind==='snow';
-  ctx.strokeStyle='rgba(200,210,220,.35)'; ctx.fillStyle='rgba(235,235,240,.75)'; ctx.lineWidth=1*DPR;
+  const n=Math.round(drops.length*WX.k*(inside?0.25:1)*(WX.kind==='snow'?0.7:1)), snow=WX.kind==='snow';
+  const storm=WX.kind==='storm';
+  ctx.strokeStyle=storm?'rgba(200,210,220,.45)':'rgba(200,210,220,.38)'; ctx.fillStyle='rgba(238,238,244,.85)'; ctx.lineWidth=(storm?1.6:1.3)*DPR;
   const wind=(0.3+G.gust)*(snow?0.06:0.25);
   ctx.beginPath();
   for(let i=0;i<n;i++){ const d=drops[i];
@@ -58,8 +62,8 @@ function drawWeather(ctx,dt,inside){
     else { d.y+=dt*1.6*d.z; d.x+=dt*wind*d.z; }
     if(d.y>1){ d.y-=1; d.x=Math.random(); } d.x=((d.x%1)+1)%1;
     const X=d.x*FW, Y=d.y*FH;
-    if(snow){ ctx.moveTo(X+1.6*d.z*DPR,Y); ctx.arc(X,Y,1.6*d.z*DPR,0,7); }
-    else { ctx.moveTo(X,Y); ctx.lineTo(X-wind*18*DPR,Y-14*d.z*DPR); }
+    if(snow){ const r=2.6*d.z*DPR; ctx.moveTo(X+r,Y); ctx.arc(X,Y,r,0,7); }
+    else { ctx.moveTo(X,Y); ctx.lineTo(X-wind*26*DPR,Y-22*d.z*DPR); }
   }
   if(snow) ctx.fill(); else ctx.stroke();
 }

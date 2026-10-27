@@ -6,6 +6,9 @@
 const matUni=phong({color:0xccb88f}), matUni2=phong({color:0xb09c74}), matVest=phong({color:0x7c6e4e}), matHelm=phong({color:0x8e7f58}),
   matGun=phong({color:0x1c1a18}), matSkin=phong({color:0xa98466}), matBoot=phong({color:0x2e2a24}), matPack=phong({color:0x6b6145});
 const matBandage=phong({color:0xcfc8b8}), matRadio=phong({color:0x3e4232}), matGoggle=phong({color:0x22262a});
+// each soldier's colour: a patch on the helmet and a band on the pack you can read from straight above, matched on their card and name tag
+const SQUAD_COLORS=[0xe0b040,0xe0583a,0x4a8ee0,0x6ac04a,0xb060d8,0x40c8c0,0xe070a0,0xe8e8e8];
+const SQUAD_CSS=SQUAD_COLORS.map(c=>'#'+c.toString(16).padStart(6,'0'));
 // idx: one of the original four (their kit details), or a look for recruits: {civ, shirt, pants, hair, skin, cap}
 function soldierMesh(idx,look){
   look=look||{};
@@ -56,6 +59,10 @@ function soldierMesh(idx,look){
     if(idx===1){ box(head,0.36,0.05,0.4,matGoggle,0,0.26,0); box(head,0.16,0.06,0.05,matGoggle,0,0.27,0.19); }
     if(idx===3){ for(let k=0;k<3;k++){ const n=box(head,0.33,0.012,0.012,matGoggle,0,0.31,-0.08+k*0.08); } }
   }
+  if(idx>=0){ const mc=new THREE.MeshBasicMaterial({color:SQUAD_COLORS[idx%SQUAD_COLORS.length]});
+    box(head,0.2,0.03,0.22,mc,0,civ?0.29:(idx===2?0.29:0.36),0);
+    box(torso,civ?0.36:0.42,0.06,civ?0.2:0.24,mc,0,civ?0.66:0.79,civ?-0.22:-0.25);
+    box(torso,0.15,0.07,0.26,mc,0.3,0.5,0); }
   const W=new THREE.Group(); torso.add(W);
   // weapon, arms and hands are built per weapon in weapons.js (setHold)
   const arms=[];
@@ -149,54 +156,70 @@ const ZGEO={
   helmet:new THREE.SphereGeometry(0.17,8,5,0,Math.PI*2,0,Math.PI/2).scale(1,0.85,1.12).translate(0,0.23,0.04),
   stripe:new THREE.BoxGeometry(0.47,0.06,0.28).translate(0,0.34,0),
   wound:new THREE.BoxGeometry(0.17,0.15,0.03),
+  wound2:new THREE.BoxGeometry(0.3,0.34,0.04),
 };
-const ZPARTS=['pelvis','torso','head','armL','armR','legL','legR','hat','helmet','stripe','wound'];
+const ZPARTS=['pelvis','torso','head','armL','armR','legL','legR','hat','helmet','stripe','wound','wound2'];
 const partGeo=n=>ZGEO[n]||ZGEO[n.slice(0,3)];
 const zim={};
 for(const n of ZPARTS){
-  const im=new THREE.InstancedMesh(partGeo(n),matZ,MAXZ); im.castShadow=n!=='wound'&&n!=='stripe'; im.frustumCulled=false;
+  const im=new THREE.InstancedMesh(partGeo(n),matZ,MAXZ); im.castShadow=n!=='wound'&&n!=='wound2'&&n!=='stripe'; im.frustumCulled=false;
   im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); onCharLayer(im); scene.add(im); zim[n]=im;
 }
 const O3=()=>new THREE.Object3D();
-const zr={root:O3(),hip:O3(),pelv:O3(),torso:O3(),tmesh:O3(),head:O3(),armL:O3(),armR:O3(),legL:O3(),legR:O3(),hat:O3(),helmet:O3(),stripe:O3(),wound:O3()};
+const zr={root:O3(),hip:O3(),pelv:O3(),torso:O3(),tmesh:O3(),head:O3(),armL:O3(),armR:O3(),legL:O3(),legR:O3(),hat:O3(),helmet:O3(),stripe:O3(),wound:O3(),wound2:O3()};
 zr.root.rotation.order='YXZ';
 zr.root.add(zr.hip); zr.hip.add(zr.pelv); zr.hip.add(zr.torso); zr.hip.add(zr.legL); zr.hip.add(zr.legR);
 zr.torso.add(zr.tmesh); zr.torso.add(zr.head); zr.torso.add(zr.armL); zr.torso.add(zr.armR);
-zr.tmesh.add(zr.stripe); zr.tmesh.add(zr.wound); zr.head.add(zr.hat); zr.head.add(zr.helmet);
+zr.tmesh.add(zr.stripe); zr.tmesh.add(zr.wound); zr.tmesh.add(zr.wound2); zr.head.add(zr.hat); zr.head.add(zr.helmet);
 zr.legL.position.x=-0.11; zr.legR.position.x=0.11; zr.head.position.set(0,0.6,0.02);
-const ZNODE={pelvis:zr.pelv,torso:zr.tmesh,head:zr.head,armL:zr.armL,armR:zr.armR,legL:zr.legL,legR:zr.legR,hat:zr.hat,helmet:zr.helmet,stripe:zr.stripe,wound:zr.wound};
+const ZNODE={pelvis:zr.pelv,torso:zr.tmesh,head:zr.head,armL:zr.armL,armR:zr.armR,legL:zr.legL,legR:zr.legR,hat:zr.hat,helmet:zr.helmet,stripe:zr.stripe,wound:zr.wound,wound2:zr.wound2};
 const dummy=new THREE.Object3D(), tmpC=new THREE.Color(), zeroM=new THREE.Matrix4().makeScale(0,0,0);
 const CLOTH=[[0.2,0.18,0.16],[0.17,0.18,0.2],[0.19,0.2,0.15],[0.24,0.2,0.16],[0.15,0.14,0.13],[0.36,0.34,0.3],[0.28,0.16,0.14],[0.16,0.2,0.24]];
 const BLOOD=new THREE.Color(0x5a1410);
 function setZC(n,i,r,g,b){ tmpC.setRGB(r,g,b); zim[n].setColorAt(i,tmpC); }
+// outfits: 0 civilian 1 cop 2 soldier 3 hospital gown 4 hi-vis 5 scrubs 6 suit 7 firefighter 8 butcher's apron 9 jogger
+// damage: 0 none 1 bloody torso 2 burned 3 chewed open 4 head wound
+const zdmg=new Uint8Array(MAXZ);
 function dressZ(i){
   const v=rand(.8,1.15);
-  const r=Math.random(); zout[i]=r<.55?0:r<.65?1:r<.77?2:r<.88?3:4;
-  const rb=Math.random(); zbody[i]=rb<.12?1:rb<.24?2:0;
+  const r=Math.random();
+  zout[i]=r<.44?0:r<.51?1:r<.6?2:r<.68?3:r<.75?4:r<.81?5:r<.88?6:r<.92?7:r<.95?8:9;
+  const rb=Math.random(); zbody[i]=rb<.12?1:rb<.24?2:rb<.33?3:rb<.42?4:0;
   zmiss[i]=Math.random()<.1?(Math.random()<.5?1:2):0;
   zwound[i]=Math.random()<.6?1:0; zwx[i]=rand(-.14,.14); zwy[i]=rand(.15,.5);
+  const rd=Math.random(); zdmg[i]=rd<.12?1:rd<.2?2:rd<.32?3:rd<.42?4:0;
   const sk=[0.4*v,0.41*v,0.35*v];
-  let top,bot,armsSkin=Math.random()<.5;
+  let top,bot,armsSkin=Math.random()<.5, stripe=[0.72,0.74,0.76];
   const o=zout[i];
   if(o===0){ const c=CLOTH[Math.random()*CLOTH.length|0], c2=CLOTH[Math.random()*5|0]; top=c.map(x=>x*v); bot=c2.map(x=>x*v*.9); }
   else if(o===1){ top=[0.1,0.12,0.19]; bot=[0.08,0.09,0.11]; armsSkin=Math.random()<.3; }
   else if(o===2){ top=[0.23,0.24,0.16]; bot=[0.21,0.22,0.15]; armsSkin=false; }
   else if(o===3){ top=[0.42,0.53,0.52]; bot=top; armsSkin=true; }
-  else { top=Math.random()<.6?[0.78,0.36,0.06]:[0.66,0.68,0.12]; bot=[0.15,0.17,0.21]; armsSkin=Math.random()<.5; }
+  else if(o===4){ top=Math.random()<.6?[0.78,0.36,0.06]:[0.66,0.68,0.12]; bot=[0.15,0.17,0.21]; armsSkin=Math.random()<.5; }
+  else if(o===5){ top=Math.random()<.5?[0.22,0.42,0.46]:[0.3,0.36,0.52]; bot=top; armsSkin=true; }
+  else if(o===6){ top=Math.random()<.5?[0.09,0.09,0.11]:[0.18,0.18,0.2]; bot=top; armsSkin=false; }
+  else if(o===7){ top=[0.42,0.34,0.18]; bot=top; armsSkin=false; stripe=[0.85,0.78,0.3]; }
+  else if(o===8){ top=[0.72,0.7,0.64]; bot=[0.2,0.2,0.22]; armsSkin=true; }
+  else { top=Math.random()<.5?[0.2,0.46,0.74]:[0.76,0.24,0.38]; bot=[0.08,0.08,0.1]; armsSkin=true; }
+  const blood=(c,k)=>c.map((x,j)=>x+(BLOOD_RGB[j]-x)*k);
+  if(o===8||zdmg[i]===1) top=blood(top,o===8?0.45:0.55);
   setZC('torso',i,...top);
-  const arm=armsSkin?sk:top; setZC('armL',i,...arm); setZC('armR',i,...arm);
+  let arm=armsSkin?sk:top; setZC('armL',i,...arm); setZC('armR',i,...arm);
   if(zmiss[i]&1) setZC('armL',i,0.34,0.07,0.05); if(zmiss[i]&2) setZC('armR',i,0.34,0.07,0.05);
   setZC('pelvis',i,...bot);
-  const leg=o===3?sk:bot; setZC('legL',i,...leg); setZC('legR',i,...leg);
-  tmpC.setRGB(...sk); if(Math.random()<.35) tmpC.lerp(BLOOD,rand(.25,.55)); zim.head.setColorAt(i,tmpC);
-  setZC('hat',i,0.07,0.08,0.12); setZC('helmet',i,0.21,0.22,0.15); setZC('stripe',i,0.72,0.74,0.76); setZC('wound',i,0.3,0.04,0.03);
+  const leg=o===3||o===9&&Math.random()<.5?sk:bot; setZC('legL',i,...leg); setZC('legR',i,...leg);
+  tmpC.setRGB(...sk); if(Math.random()<.35||zdmg[i]===4) tmpC.lerp(BLOOD,zdmg[i]===4?0.7:rand(.25,.55)); zim.head.setColorAt(i,tmpC);
+  setZC('hat',i,0.07,0.08,0.12); setZC('helmet',i,0.21,0.22,0.15); setZC('stripe',i,...stripe); setZC('wound',i,0.3,0.04,0.03); setZC('wound2',i,0.36,0.05,0.04);
+  // burned: everything goes dark and cracked red
+  if(zdmg[i]===2) for(const n of ['torso','armL','armR','pelvis','legL','legR','head']){ const a=zim[n].instanceColor.array; a[i*3]=a[i*3]*0.3+0.06; a[i*3+1]*=0.25; a[i*3+2]*=0.22; }
   for(const n of ZPARTS) zim[n].instanceColor.needsUpdate=true;
 }
+const BLOOD_RGB=[0.35,0.06,0.04];
 for(let i=0;i<MAXZ;i++){ dressZ(i); for(const n of ZPARTS) zim[n].setMatrixAt(i,zeroM); }
 function hideZ(i){ for(const n of ZPARTS) zim[n].setMatrixAt(i,zeroM); }
 function lookZ(i){
   const R=zr, b=zbody[i], o=zout[i], m=zmiss[i];
-  const tx=b===1?1.35:b===2?0.82:1, tz=b===1?1.45:b===2?0.85:1, ty=b===2?1.08:1, legY=b===2?1.12:1;
+  const tx=b===1?1.35:b===2?0.82:b===3?1.18:b===4?0.92:1, tz=b===1?1.45:b===2?0.85:b===3?1.2:b===4?0.9:1, ty=b===2?1.08:b===3?0.88:b===4?0.94:1, legY=b===2?1.12:b===3?0.82:b===4?0.94:1;
   R.tmesh.scale.set(tx,ty,tz); R.pelv.scale.set(b===1?1.3:tx,1,b===1?1.35:tz);
   R.legL.scale.set(b===1?1.25:1,legY,b===1?1.25:1); R.legR.scale.copy(R.legL.scale);
   R.legL.position.x=-0.11*(b===1?1.3:1); R.legR.position.x=-R.legL.position.x;
@@ -204,8 +227,9 @@ function lookZ(i){
   R.armL.scale.set(1,(m&8)?0:(m&1)?0.33:ay,1); R.armR.scale.set(1,(m&16)?0:(m&2)?0.33:ay,1);
   R.armL.position.set(-0.29*tx,0.56*ty,0); R.armR.position.set(0.29*tx,0.56*ty,0);
   R.head.position.set(0,0.6*ty,0.02); R.head.scale.setScalar((m&4)?0:1);
-  R.hat.scale.setScalar(o===1?1:0); R.helmet.scale.setScalar(o===2?1:0); R.stripe.scale.setScalar(o===4?1:0);
+  R.hat.scale.setScalar(o===1?1:0); R.helmet.scale.setScalar(o===2||o===7?1:0); R.stripe.scale.setScalar(o===4||o===7?1:0);
   R.wound.scale.setScalar(zwound[i]?1:0); R.wound.position.set(zwx[i],zwy[i],0.14);
+  R.wound2.scale.setScalar(zdmg[i]===3?1:0); R.wound2.position.set(zwx[i]*-0.6,0.32,0.145);
   return legY;
 }
 function writeZ(i){ zr.root.updateMatrixWorld(true); for(const n of ZPARTS) zim[n].setMatrixAt(i,ZNODE[n].matrixWorld); }

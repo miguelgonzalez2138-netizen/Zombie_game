@@ -114,7 +114,7 @@ function makeCone(len,ang){
 }
 // particle pool: fire (additive) and smoke (normal)
 const PARTS=[];
-for(let i=0;i<260;i++){ const add=i<110; const spr=makeSprite(add?texSoft:texSoft,add?0xff8a3a:0x8a8f96,add,1); spr.visible=false; PARTS.push({spr,add,live:false}); }
+for(let i=0;i<420;i++){ const add=i<190; const spr=makeSprite(add?texSoft:texSoft,add?0xff8a3a:0x8a8f96,add,1); spr.visible=false; PARTS.push({spr,add,live:false}); }
 let partIdx=0;
 function emit(add,x,y,z,vx,vy,vz,life,s0,s1,hex,op){
   for(let n=0;n<PARTS.length;n++){ partIdx=(partIdx+1)%PARTS.length; const q=PARTS[partIdx]; if(q.add!==add||q.live) continue;
@@ -246,8 +246,8 @@ function updatePapers(dt,p){
 const litWindows=[];
 {
   const cands=[]; for(let e=1;e<EN;e++){ if(ED.t[e]!==ET.WIN||ED.L[e]<1||!OPEN[e]) continue; const B=MAP.blds[ED.b[e]]; if(!B||B.kind==='base') continue;
-    const O=OPEN[e]; if(Math.abs(O.z)>90||Math.abs(O.x)>70) continue; cands.push(e); }
-  for(let k=0;k<7&&cands.length;k++){
+    const O=OPEN[e]; if(Math.abs(O.z)>150||Math.abs(O.x)>120) continue; cands.push(e); }
+  for(let k=0;k<34&&cands.length;k++){
     const e=cands.splice(Math.floor(Math.random()*cands.length),1)[0], O=OPEN[e];
     const g=new THREE.PlaneGeometry(0.86,(O.yt-O.yb)*0.92); g.setAttribute('bid',new THREE.BufferAttribute(new Float32Array(4).fill(ED.b[e]),1));
     const m=new THREE.Mesh(g,cutPatch(new THREE.MeshBasicMaterial({color:0x000000})));
