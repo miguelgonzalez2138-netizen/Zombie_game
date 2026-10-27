@@ -55,7 +55,22 @@ function offDutyJob(s){
   return (s.uid%3===0&&squad.some(q=>q.i===me&&q.spot&&q.spot.kind==='radio'))?'radio':((s.uid+G.night)%4===0?'radio':'fire');
 }
 // returns true if it handled the buddy this frame
+// told to rest: a cot (or a stool if the cots are taken), day or night, until told otherwise or something's on top of them
+function restBuddy(s,dt){
+  if(s.aimJ>=0&&zst[s.aimJ]&&Math.hypot(zx[s.aimJ]-s.x,zz[s.aimJ]-s.z)<7){ if(s.spot) releaseSpot(s); return false; }
+  if(s.spot&&s.spot.kind!=='cot'&&freeSpot('cot',s)) releaseSpot(s);
+  if(!s.spot||(s.spot.kind!=='cot'&&s.spot.kind!=='fire'&&s.spot.kind!=='radio')){ if(s.spot) releaseSpot(s); const sp=freeSpot('cot',s)||freeSpot('fire',s)||freeSpot('radio',s); if(!sp) return false; sp.by=s; s.spot=sp; }
+  const sp=s.spot, gx=sp.lie?sp.ax:sp.x, gz=sp.lie?sp.az:sp.z, d=Math.hypot(gx-s.x,gz-s.z);
+  if(!s.atSpot&&(d>0.45||s.L!==sp.L)){ s.pose=''; s.resting=false; navTo(s,gx,gz,sp.L,d>8?3.6:2.4,dt); s.status='TO A COT'; return true; }
+  s.atSpot=sp; s.resting=true; s.x=lerp(s.x,sp.x,Math.min(1,dt*6)); s.z=lerp(s.z,sp.z,Math.min(1,dt*6)); s.vx=s.vz=0;
+  let da=sp.ang-s.ang; while(da>Math.PI) da-=Math.PI*2; while(da<-Math.PI) da+=Math.PI*2; s.ang+=da*Math.min(1,dt*4);
+  s.pose=sp.lie?'lie':'sit'; s.lightOn=false;
+  s.fat=Math.max(0,s.fat-(sp.lie?1.2:0.3)*dt); s.stress=Math.max(0,s.stress-(sp.lie?3:2.5)*dt);
+  s.status=sp.lie?'ASLEEP':'RESTING';
+  return true;
+}
 function offDutyBuddy(s,dt){
+  if(s.order==='rest'&&!s.mounted&&!s.away) return restBuddy(s,dt);
   if(!offDuty()||s.order!=='hold'||s.postSet||s.mounted||s.away){ if(s.spot) releaseSpot(s); return false; }
   // something right on top of us: drop everything
   if(s.aimJ>=0&&zst[s.aimJ]&&Math.hypot(zx[s.aimJ]-s.x,zz[s.aimJ]-s.z)<7){ if(s.spot) releaseSpot(s); return false; }

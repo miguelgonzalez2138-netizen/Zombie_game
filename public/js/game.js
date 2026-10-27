@@ -476,8 +476,7 @@ function updateBuddy(s,dt){
   else if(o==='heal'){ const t=s.healTgt; if(!t||!present(t)){ s.order='hold'; } else { gx=t.x; gz=t.z; gL=t.L;
     if(t.L===s.L&&Math.hypot(t.x-s.x,t.z-s.z)<1.4){ healSomeone(s,t); s.order='hold'; } } }
   else if(o==='mg'){ const n=s.nest; if(!n||n.dead||(n.manned&&n.manned!==s)){ s.order='hold'; } else if(!s.mounted){ const g=mgSpot(n); gx=g.x; gz=g.z; gL=n.L; if(Math.hypot(g.x-s.x,g.z-s.z)<0.9) mount(s,n); } }
-  else if(o==='rest'){ if(G.phase==='night'){ s.order='hold'; s.resting=false; } else { const cot=s.cot||(s.cot=nearestFurn({L:0,x:-15,z:12},f=>f.type==='cot'&&MAP.blds[f.b].kind==='base'&&!squad.some(q=>q!==s&&q.cot===f),40));
-    if(cot){ const cx=(cot.x0+cot.x1)/2, cz=(cot.z0+cot.z1)/2, sp=findSpot(0,cx-1,cz)||{x:cx-1,z:cz}; gx=sp.x; gz=sp.z; gL=0; s.resting=Math.hypot(gx-s.x,gz-s.z)<0.8; } } }
+  else if(o==='rest'){ /* handled by restBuddy in comfy.js */ }
   else if(o==='scav'){ s.order='hold'; }
   if(G.phase==='day'&&o==='hold'&&!s.postSet){
     let worst=null; for(const g of segs) if(g.hp<g.max&&(!worst||g.hp/g.max<worst.hp/worst.max)) worst=g;
