@@ -446,8 +446,8 @@ const imScorch=new THREE.InstancedMesh(new THREE.CircleGeometry(0.5,10).rotateX(
   new THREE.MeshBasicMaterial({color:0x0e0c0a,transparent:true,opacity:0.7,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),MAXSC);
 imScorch.frustumCulled=false; onCharLayer(imScorch); scene.add(imScorch); for(let i=0;i<MAXSC;i++) imScorch.setMatrixAt(i,zeroM);
 function scorch(x,z,y,r){ dummy.position.set(x,(y||0)+0.04,z); dummy.rotation.set(0,rand(0,6),0); dummy.scale.set(r*2,1,r*2*rand(.8,1.1)); dummy.updateMatrix(); imScorch.setMatrixAt(scIdx,dummy.matrix); scIdx=(scIdx+1)%MAXSC; imScorch.instanceMatrix.needsUpdate=true; }
-const boomLight=new THREE.PointLight(0xffb060,0,26,2); boomLight.layers.enableAll(); scene.add(boomLight);
-const fireLights=[0,1].map(()=>{ const l=new THREE.PointLight(0xff7a2a,0,14,2); l.layers.enableAll(); scene.add(l); return l; });
+const boomLight=fakeLight(0xffb060,0,26);
+const fireLights=[0,1].map(()=>fakeLight(0xff7a2a,0,14));
 let boomT=0;
 function explode(x,y,z,L){
   const R=6.5, ps=squad[me], dp=Math.hypot(x-ps.x,z-ps.z);

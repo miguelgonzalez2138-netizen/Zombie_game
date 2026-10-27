@@ -53,6 +53,8 @@ const LAYER_CHAR=1;
 let rtLow=null;
 renderer.shadowMap.autoUpdate=false;
 // composite: low-res world color + its depth, so hi-res characters still get blocked by walls
+const LIGHT_PROXIES=[];
+function fakeLight(color,intensity,distance){ const p={isProxy:true,position:new THREE.Vector3(),color:new THREE.Color(color),intensity,distance,layers:{enableAll(){}}}; LIGHT_PROXIES.push(p); return p; }
 const quadScene=new THREE.Scene(), quadCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 const quadMat=new THREE.ShaderMaterial({
   uniforms:{tColor:{value:null},tDepth:{value:null}},

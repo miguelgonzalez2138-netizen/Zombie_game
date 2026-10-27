@@ -605,16 +605,16 @@ moon.castShadow=true; moon.shadow.mapSize.set(2048,2048);
 const sc=moon.shadow.camera; sc.left=-95;sc.right=95;sc.top=95;sc.bottom=-95;sc.near=1;sc.far=360; moon.shadow.bias=-0.0009;
 const sunOff=new THREE.Vector3(-55,95,-35);
 scene.add(moon); scene.add(moon.target);
-const workLight=new THREE.PointLight(0xffd29a,1.5,28,2); workLight.position.set(LIGHT_WORK.x,3.3,LIGHT_WORK.z-0.4); scene.add(workLight);
-const barrelLight=new THREE.PointLight(0xff8a3a,1.3,16,2); barrelLight.position.set(LIGHT_BARREL.x,1.6,LIGHT_BARREL.z); scene.add(barrelLight);
-const doorLight=new THREE.PointLight(0xffb06a,1.3,16,2); doorLight.position.set(-18,2.6,DOOR.z); scene.add(doorLight);
-const flashes=[0,1].map(()=>{const l=new THREE.PointLight(0xffd08a,0,19,2);scene.add(l);return {l,t:0};});
+const workLight=fakeLight(0xffd29a,1.5,28); workLight.position.set(LIGHT_WORK.x,3.3,LIGHT_WORK.z-0.4);
+const barrelLight=fakeLight(0xff8a3a,1.3,16); barrelLight.position.set(LIGHT_BARREL.x,1.6,LIGHT_BARREL.z);
+const doorLight=fakeLight(0xffb06a,1.3,16); doorLight.position.set(-18,2.6,DOOR.z);
+const flashes=[0,1].map(()=>{const l=fakeLight(0xffd08a,0,19);return {l,t:0};});
 const LAMP={x:10.0,z:-52}, CARFIRE={x:5.5,z:-24};
-const lampLight=new THREE.PointLight(0xd8e2ff,1.2,20,2); lampLight.position.set(LAMP.x,5.6,LAMP.z); scene.add(lampLight);
+const lampLight=fakeLight(0xd8e2ff,1.2,20); lampLight.position.set(LAMP.x,5.6,LAMP.z);
 const lampBulb=addMesh(new THREE.BoxGeometry(0.5,0.12,0.3),new THREE.MeshBasicMaterial({color:0xdfe6ff}),LAMP.x,5.92,LAMP.z,false,false);
-const carLight=new THREE.PointLight(0xff7a2a,1.8,22,2); carLight.position.set(CARFIRE.x,2.2,CARFIRE.z); scene.add(carLight);
+const carLight=fakeLight(0xff7a2a,1.8,22); carLight.position.set(CARFIRE.x,2.2,CARFIRE.z);
 const flares=[0,1].map(()=>{
-  const l=new THREE.PointLight(0xff2a1e,0,15,2); scene.add(l);
+  const l=fakeLight(0xff2a1e,0,15);
   const m=addMesh(new THREE.CylinderGeometry(0.05,0.05,0.35,5),new THREE.MeshBasicMaterial({color:0xff4030}),0,0.08,0,false,false);
   m.rotation.z=Math.PI/2; m.visible=false;
   return {l,m,x:0,z:0,on:false};
@@ -624,6 +624,17 @@ function placeFlares(){
     f.l.position.set(f.x,0.5,f.z); f.m.position.set(f.x,0.08,f.z); f.m.rotation.y=rand(0,3); f.on=true; f.m.visible=true; }
 }
 flushStatics();
+// the real lights: a pool that follows the proxies nearest the action
+const LIGHT_POOL=[];
+for(let i=0;i<5;i++){ const l=new THREE.PointLight(0xffffff,0,10,2); scene.add(l); LIGHT_POOL.push(l); }
+const _lc=[];
+function assignLights(px,pz){
+  _lc.length=0;
+  for(const p of LIGHT_PROXIES){ if(p.intensity<0.02) continue; const d=Math.hypot(p.position.x-px,p.position.z-pz); if(d>p.distance+38) continue; _lc.push([p.intensity*(1.4-Math.min(1.2,d/(p.distance+38))),p]); }
+  _lc.sort((a,b)=>b[0]-a[0]);
+  for(let i=0;i<LIGHT_POOL.length;i++){ const l=LIGHT_POOL[i], c=_lc[i];
+    if(!c){ l.intensity=0; continue; } const p=c[1]; l.position.copy(p.position); l.color.copy(p.color); l.intensity=p.intensity; l.distance=p.distance; }
+}
 scene.traverse(o=>{ if(o.isLight) o.layers.enableAll(); });
 moon.shadow.camera.layers.enableAll();
 let flashIdx=0;

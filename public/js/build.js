@@ -191,7 +191,7 @@ function stepTraps(i,dt){
   if(S.type==='flare'&&S.armed){ S.armed=false; S.rearm=0; lightTripFlare(S); return 1; }
   return 1;
 }
-const tripLights=[0,1].map(()=>{ const l=new THREE.PointLight(0xff2a1e,0,16,2); l.layers.enableAll(); scene.add(l); return {l,S:null,t:0}; });
+const tripLights=[0,1].map(()=>({l:fakeLight(0xff2a1e,0,16),S:null,t:0}));
 let tripIdx=0;
 function lightTripFlare(S){
   const T=tripLights[tripIdx]; tripIdx=(tripIdx+1)%tripLights.length; T.S=S; T.t=40;
